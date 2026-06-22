@@ -85,7 +85,7 @@ class CameraStreamer: NSObject, ObservableObject {
             // Set output
             videoDataOutput.alwaysDiscardsLateVideoFrames = true
             videoDataOutput.videoSettings = [
-                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelBufferDataTypeID // default to BiPlanar NV12
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange // default to BiPlanar NV12
             ]
             
             if captureSession.canAddOutput(videoDataOutput) {
@@ -236,16 +236,7 @@ class CameraStreamer: NSObject, ObservableObject {
         device.unlockForConfiguration()
     }
     
-    // Output callback block from VideoToolbox compressor
-    private let compressionCallback: VTCompressionOutputCallback = { refcon, sourceFrameRefcon, status, infoFlags, sampleBuffer in
-        guard status == noErr, let sampleBuffer = sampleBuffer else {
-            print("Encoding error: \(status)")
-            return
-        }
-        
-        let streamer = Unmanaged<CameraStreamer>.fromOpaque(refcon!).takeUnretainedValue()
-        streamer.handleEncodedFrame(sampleBuffer)
-    }
+    // Output callback is defined as a global function at the bottom of this file.
     
     private func handleEncodedFrame(_ sampleBuffer: CMSampleBuffer) {
         guard isStreaming else { return }
@@ -507,4 +498,19 @@ extension CameraStreamer: AVCaptureVideoDataOutputSampleBufferDelegate {
             socketServer.sendVideoFrame(pts: ptsNs, data: jpegData)
         }
     }
+}
+
+// Global VideoToolbox compression callback
+private func compressionCallback(
+    refcon: UnsafeMutableRawPointer?,
+    sourceFrameRefcon: UnsafeMutableRawPointer?,
+    status: OSStatus,
+    infoFlags: VTEncodeInfoFlags,
+    sampleBuffer: CMSampleBuffer?
+) {
+    guard status == noErr, let sampleBuffer = sampleBuffer, let refcon = refcon else {
+        return
+    }
+    let streamer = Unmanaged<CameraStreamer>.fromOpaque(refcon).takeUnretainedValue()
+    streamer.handleEncodedFrame(sampleBuffer)
 }
