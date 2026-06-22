@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import SystemConfiguration
+import Darwin
 
 struct ContentView: View {
     @StateObject private var settings = SettingsManager.shared
