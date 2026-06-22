@@ -219,7 +219,7 @@ class CameraStreamer: NSObject, ObservableObject {
             }
         }
         
-        if let format = bestFormat, let range = bestFrameRateRange {
+        if let format = bestFormat, bestFrameRateRange != nil {
             device.activeFormat = format
             device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(fps))
             device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(fps))
@@ -238,7 +238,7 @@ class CameraStreamer: NSObject, ObservableObject {
     
     // Output callback is defined as a global function at the bottom of this file.
     
-    private func handleEncodedFrame(_ sampleBuffer: CMSampleBuffer) {
+    func handleEncodedFrame(_ sampleBuffer: CMSampleBuffer) {
         guard isStreaming else { return }
         
         // Get PTS
@@ -279,12 +279,12 @@ class CameraStreamer: NSObject, ObservableObject {
         
         if streamingFormat == "avc" {
             var parameterSetCount = 0
-            CMVideoFormatDescriptionGetH264ParameterSetAtIndex(formatDescription, atIndex: 0, parameterSetPointerOut: nil, parameterSetSizeOut: nil, parameterSetCountOut: &parameterSetCount, nalUnitHeaderLengthOut: nil)
+            CMVideoFormatDescriptionGetH264ParameterSetAtIndex(formatDescription, parameterSetIndex: 0, parameterSetPointerOut: nil, parameterSetSizeOut: nil, parameterSetCountOut: &parameterSetCount, nalUnitHeaderLengthOut: nil)
             
             for i in 0..<parameterSetCount {
                 var parameterSetPointer: UnsafePointer<UInt8>?
                 var parameterSetSize = 0
-                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(formatDescription, atIndex: i, parameterSetPointerOut: &parameterSetPointer, parameterSetSizeOut: &parameterSetSize, parameterSetCountOut: nil, nalUnitHeaderLengthOut: nil)
+                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(formatDescription, parameterSetIndex: i, parameterSetPointerOut: &parameterSetPointer, parameterSetSizeOut: &parameterSetSize, parameterSetCountOut: nil, nalUnitHeaderLengthOut: nil)
                 
                 if let paramPtr = parameterSetPointer {
                     configData.append(contentsOf: startCode)
@@ -294,12 +294,12 @@ class CameraStreamer: NSObject, ObservableObject {
         } else if streamingFormat == "hevc" {
             // HEVC (H.265) parameters count is up to 3 usually (VPS, SPS, PPS)
             var parameterSetCount = 0
-            CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(formatDescription, atIndex: 0, parameterSetPointerOut: nil, parameterSetSizeOut: nil, parameterSetCountOut: &parameterSetCount, nalUnitHeaderLengthOut: nil)
+            CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(formatDescription, parameterSetIndex: 0, parameterSetPointerOut: nil, parameterSetSizeOut: nil, parameterSetCountOut: &parameterSetCount, nalUnitHeaderLengthOut: nil)
             
             for i in 0..<parameterSetCount {
                 var parameterSetPointer: UnsafePointer<UInt8>?
                 var parameterSetSize = 0
-                CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(formatDescription, atIndex: i, parameterSetPointerOut: &parameterSetPointer, parameterSetSizeOut: &parameterSetSize, parameterSetCountOut: nil, nalUnitHeaderLengthOut: nil)
+                CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(formatDescription, parameterSetIndex: i, parameterSetPointerOut: &parameterSetPointer, parameterSetSizeOut: &parameterSetSize, parameterSetCountOut: nil, nalUnitHeaderLengthOut: nil)
                 
                 if let paramPtr = parameterSetPointer {
                     configData.append(contentsOf: startCode)

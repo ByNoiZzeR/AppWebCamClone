@@ -168,7 +168,6 @@ class SocketServer: ObservableObject {
             return
         }
         
-        let method = reqParts[0]
         let uri = reqParts[1]
         
         if uri == "/ping" {
