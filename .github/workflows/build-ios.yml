@@ -58,6 +58,18 @@ jobs:
           cp -r build/Release-iphoneos/ios-client.app Payload/
           zip -r ios-client.ipa Payload
 
+      - name: Commit and Push IPA to branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          cp ios-client.ipa ../ios-client-temp.ipa
+          git checkout --orphan ipa-build
+          git rm -rf .
+          mv ../ios-client-temp.ipa ios-client.ipa
+          git add ios-client.ipa
+          git commit -m "Automated IPA build"
+          git push origin HEAD:ipa-build --force
+
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -71,4 +83,5 @@ jobs:
         run: |
           gh release create v1.0.0 --title "v1.0.0" --notes "Automated iOS client build" --clobber || true
           gh release upload v1.0.0 ios-client.ipa --clobber || true
+
 
