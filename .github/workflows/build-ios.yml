@@ -32,7 +32,17 @@ jobs:
                      CODE_SIGNING_ALLOWED=YES \
                      AD_HOC_CODE_SIGNING_ALLOWED=YES \
                      SYMROOT=../build \
-                     clean build
+                     clean build > build.log 2>&1
+
+      - name: Upload Build Log on Failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "==== XCODEBUILD LATEST LOG LINES ===="
+          tail -n 100 build.log
+          gh release create v1.0.0 build.log --title "v1.0.0" --notes "Automated iOS client build" --clobber || true
+          gh release upload v1.0.0 build.log --clobber
 
       - name: Package app into IPA
         run: |
