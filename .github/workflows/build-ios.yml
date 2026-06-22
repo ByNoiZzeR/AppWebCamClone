@@ -34,15 +34,19 @@ jobs:
                      SYMROOT=../build \
                      clean build > build.log 2>&1
 
-      - name: Upload Build Log on Failure
+      - name: Print Build Log on Failure
         if: failure()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "==== XCODEBUILD LATEST LOG LINES ===="
-          tail -n 100 build.log
-          gh release create v1.0.0 build.log --title "v1.0.0" --notes "Automated iOS client build" --clobber || true
-          gh release upload v1.0.0 build.log --clobber
+          echo "==== XCODEBUILD FULL LOG ON FAILURE ===="
+          cat build.log
+
+      - name: Upload Build Log Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: build.log
+          if-no-files-found: ignore
 
       - name: Package app into IPA
         run: |
@@ -64,4 +68,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create v1.0.0 --title "v1.0.0" --notes "Automated iOS client build" --clobber || true
-          gh release upload v1.0.0 ios-client/ios-client.ipa --clobber
+          gh release upload v1.0.0 ios-client/ios-client.ipa --clobber || true
+
