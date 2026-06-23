@@ -1,0 +1,195 @@
+﻿Command line invocation:
+    /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/xcodebuild -project ios-client/ios-client.xcodeproj -scheme ios-client -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO AD_HOC_CODE_SIGNING_ALLOWED=NO SYMROOT=../build clean build
+
+Build settings from command line:
+    AD_HOC_CODE_SIGNING_ALLOWED = NO
+    CODE_SIGN_IDENTITY = 
+    CODE_SIGNING_ALLOWED = NO
+    CODE_SIGNING_REQUIRED = NO
+    SDKROOT = iphoneos18.5
+    SYMROOT = ../build
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device }
+{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:22e6a888746a819ae3fbde0b50aefa273506c314, name:My Mac }
+{ platform:iOS Simulator, id:dvtdevice-DVTiOSDeviceSimulatorPlaceholder-iphonesimulator:placeholder, name:Any iOS Simulator Device }
+note: Using codesigning identity override: 
+ComputePackagePrebuildTargetDependencyGraph
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+** CLEAN SUCCEEDED **
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device }
+{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:22e6a888746a819ae3fbde0b50aefa273506c314, name:My Mac }
+{ platform:iOS Simulator, id:dvtdevice-DVTiOSDeviceSimulatorPlaceholder-iphonesimulator:placeholder, name:Any iOS Simulator Device }
+note: Using codesigning identity override: 
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'ios-client' in project 'ios-client' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 5a55052465384b28547cfb6943c13f93
+Build description path: /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/XCBuildData/5a55052465384b28547cfb6943c13f93.xcbuilddata
+ClangStatCache /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client.xcodeproj
+    /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -o /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache
+
+CreateBuildDirectory /Users/runner/work/AppWebCamClone/AppWebCamClone/build
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client.xcodeproj
+    builtin-create-build-directory /Users/runner/work/AppWebCamClone/AppWebCamClone/build
+
+CreateBuildDirectory /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client.xcodeproj
+    builtin-create-build-directory /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client-2a6bf3a15e00edbe378612b9db263680-VFS-iphoneos/all-product-headers.yaml
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client.xcodeproj
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client-2a6bf3a15e00edbe378612b9db263680-VFS-iphoneos/all-product-headers.yaml
+
+CreateBuildDirectory /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client.xcodeproj
+    builtin-create-build-directory /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos
+
+CreateBuildDirectory /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/EagerLinkingTBDs/Release-iphoneos
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client.xcodeproj
+    builtin-create-build-directory /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/EagerLinkingTBDs/Release-iphoneos
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client.hmap (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client.DependencyStaticMetadataFileList (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client.DependencyMetadataFileList (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-project-headers.hmap (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-project-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-own-target-headers.hmap (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-own-target-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-generated-files.hmap (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-generated-files.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-all-target-headers.hmap (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-all-target-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-all-non-framework-target-headers.hmap (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client_const_extract_protocols.json (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client.SwiftFileList (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client.SwiftFileList
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client.SwiftConstValuesFileList (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client.LinkFileList (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client.LinkFileList
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client-OutputFileMap.json (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client-OutputFileMap.json
+
+MkDir /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos/ios-client.app (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    /bin/mkdir -p /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos/ios-client.app
+
+MkDir /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/assetcatalog_output/thinned (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    /bin/mkdir -p /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/assetcatalog_output/thinned
+
+MkDir /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/assetcatalog_output/unthinned (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    /bin/mkdir -p /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/assetcatalog_output/unthinned
+
+GenerateAssetSymbols /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/Assets.xcassets (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/actool /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/Assets.xcassets --compile /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos/ios-client.app --output-format human-readable-text --notices --warnings --export-dependency-info /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/assetcatalog_dependencies --output-partial-info-plist /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/assetcatalog_generated_info.plist --app-icon AppIcon --accent-color AccentColor --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 15.0 --platform iphoneos --bundle-identifier com.webcamclone.ios-client --generate-swift-asset-symbol-extensions NO --generate-swift-asset-symbols /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/* com.apple.actool.compilation-results */
+/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/GeneratedAssetSymbols.h
+/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/GeneratedAssetSymbols.swift
+
+
+CompileAssetCatalogVariant thinned /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos/ios-client.app /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/Assets.xcassets (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/actool /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/Assets.xcassets --compile /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/assetcatalog_generated_info.plist_thinned --app-icon AppIcon --accent-color AccentColor --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 15.0 --platform iphoneos
+IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver
+
+SwiftDriver ios-client normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    builtin-SwiftDriver -- /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ios_client -O -whole-module-optimization -enforce-exclusivity\=checked @/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -target arm64-apple-ios15.0 -g -module-cache-path /Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -swift-version 5 -I /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos -F /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos -emit-localized-strings -emit-localized-strings-path /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64 -c -num-threads 3 -Xcc -ivfsstatcache -Xcc /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache -output-file-map /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios_client.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client_const_extract_protocols.json -Xcc -iquote -Xcc /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-generated-files.hmap -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-own-target-headers.hmap -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-all-target-headers.hmap -Xcc -iquote -Xcc /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-project-headers.hmap -Xcc -I/Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos/include -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources-normal/arm64 -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/arm64 -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios_client-Swift.h -working-directory /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client -no-emit-module-separately-wmo
+
+SwiftCompile normal arm64 Compiling\ ios_clientApp.swift,\ ContentView.swift,\ CameraStreamer.swift,\ SocketServer.swift,\ SettingsManager.swift,\ GeneratedAssetSymbols.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/ios_clientApp.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/ContentView.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/CameraStreamer.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/SocketServer.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/SettingsManager.swift /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'ios-client' from project 'ios-client')
+Failed frontend command:
+/Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift-frontend -frontend -c /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/ios_clientApp.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/ContentView.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/CameraStreamer.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/SocketServer.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/SettingsManager.swift /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/GeneratedAssetSymbols.swift -supplementary-output-file-map /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/supplementaryOutputs-1 -emit-localized-strings -emit-localized-strings-path /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64 -target arm64-apple-ios15.0 -Xllvm -aarch64-use-tbi -enable-objc-interop -stack-check -sdk /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -I /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos -F /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos -no-color-diagnostics -g -debug-info-format\=dwarf -dwarf-version\=4 -module-cache-path /Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -swift-version 5 -enforce-exclusivity\=checked -O -serialize-debugging-options -const-gather-protocols-file /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client_const_extract_protocols.json -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -empty-abi-descriptor -validate-clang-modules-once -clang-build-session-file /Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -working-directory -Xcc /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client -resource-dir /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift -file-compilation-dir /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client -Xcc -ivfsstatcache -Xcc /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/swift-overrides.hmap -Xcc -iquote -Xcc /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-generated-files.hmap -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-own-target-headers.hmap -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-all-target-headers.hmap -Xcc -iquote -Xcc /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-project-headers.hmap -Xcc -I/Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos/include -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources-normal/arm64 -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/arm64 -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources -module-name ios_client -frontend-parseable-output -disable-clang-spi -target-sdk-version 18.5 -target-sdk-name iphoneos18.5 -external-plugin-path /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/swift/host/plugins\#/Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server -external-plugin-path /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/local/lib/swift/host/plugins\#/Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server -in-process-plugin-server-path /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/libSwiftInProcPluginServer.dylib -plugin-path /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins -plugin-path /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/local/lib/swift/host/plugins -enable-default-cmo -num-threads 3 -o /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios_clientApp.o -o /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ContentView.o -o /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/CameraStreamer.o -o /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/SocketServer.o -o /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/SettingsManager.o -o /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/GeneratedAssetSymbols.o -index-unit-output-path /ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios_clientApp.o -index-unit-output-path /ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ContentView.o -index-unit-output-path /ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/CameraStreamer.o -index-unit-output-path /ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/SocketServer.o -index-unit-output-path /ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/SettingsManager.o -index-unit-output-path /ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/GeneratedAssetSymbols.o
+
+CompileSwift normal arm64 (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    
+/Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/ContentView.swift:419:38: error: cannot find 'resolutionLabel' in scope
+                                Text(resolutionLabel(res))
+                                     ^~~~~~~~~~~~~~~
+/Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/ContentView.swift:387:16: error: the compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions
+        return VStack(spacing: isLandscape ? 6 : 12) {
+               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+SwiftDriver\ Compilation ios-client normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ios-client' from project 'ios-client')
+    cd /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client
+    builtin-Swift-Compilation -- /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ios_client -O -whole-module-optimization -enforce-exclusivity\=checked @/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -target arm64-apple-ios15.0 -g -module-cache-path /Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -swift-version 5 -I /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos -F /Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos -emit-localized-strings -emit-localized-strings-path /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64 -c -num-threads 3 -Xcc -ivfsstatcache -Xcc /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache -output-file-map /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios_client.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios-client_const_extract_protocols.json -Xcc -iquote -Xcc /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-generated-files.hmap -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-own-target-headers.hmap -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-all-target-headers.hmap -Xcc -iquote -Xcc /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/ios-client-project-headers.hmap -Xcc -I/Users/runner/work/AppWebCamClone/AppWebCamClone/build/Release-iphoneos/include -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources-normal/arm64 -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/arm64 -Xcc -I/Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/Objects-normal/arm64/ios_client-Swift.h -working-directory /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client -no-emit-module-separately-wmo
+
+note: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'ios-client' from project 'ios-client')
+** BUILD FAILED **
+
+
+The following build commands failed:
+	SwiftCompile normal arm64 Compiling\ ios_clientApp.swift,\ ContentView.swift,\ CameraStreamer.swift,\ SocketServer.swift,\ SettingsManager.swift,\ GeneratedAssetSymbols.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/ios_clientApp.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/ContentView.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/CameraStreamer.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/SocketServer.swift /Users/runner/work/AppWebCamClone/AppWebCamClone/ios-client/ios-client/SettingsManager.swift /Users/runner/Library/Developer/Xcode/DerivedData/ios-client-ennjghbhnygmgqcdpucvmiihniti/Build/Intermediates.noindex/ios-client.build/Release-iphoneos/ios-client.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'ios-client' from project 'ios-client')
+	CompileSwift normal arm64 (in target 'ios-client' from project 'ios-client')
+	Building project ios-client with scheme ios-client and configuration Release
+(3 failures)

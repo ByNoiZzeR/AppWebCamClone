@@ -1,0 +1,245 @@
+    private let HTML_PAGE = """
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>Studio Cam \u2014 Control Panel</title>
+<link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>
+<style>
+:root{
+  --bg:#080B14;--surface:#0D1117;--surface2:#161B27;
+  --border:#1E2940;--accent:#6366F1;--accent-l:#818CF8;
+  --accent-d:rgba(99,102,241,.12);--green:#22C55E;
+  --green-d:rgba(34,197,94,.12);--rose:#F43F5E;
+  --amber:#F59E0B;--text:#F1F5F9;--text2:#94A3B8;--text3:#475569;
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);display:flex;flex-direction:column;min-height:100vh}
+.nav{
+  display:flex;align-items:center;gap:1rem;padding:0 1.5rem;height:52px;
+  border-bottom:1px solid var(--border);background:rgba(8,11,20,.94);
+  backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;
+}
+.logo{font-size:.95rem;font-weight:700;letter-spacing:.18em;color:var(--accent-l)}
+.logo span{color:var(--text3);font-weight:300}
+.spacer{flex:1}
+#badge{
+  display:flex;align-items:center;gap:.4rem;padding:.25rem .8rem;
+  border-radius:99px;font-size:.68rem;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;background:var(--green-d);
+  border:1px solid var(--green);color:var(--green);transition:all .3s;
+}
+#badge.off{background:rgba(71,85,105,.15);border-color:var(--text3);color:var(--text3)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:blink 1.4s ease-in-out infinite}
+#badge.off .dot{animation:none}
+@keyframes blink{0%,100%{opacity:.2;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+.main{display:grid;grid-template-columns:1fr 360px;flex:1;height:calc(100vh - 52px)}
+.preview{
+  background:#000;display:flex;align-items:center;justify-content:center;
+  position:relative;border-right:1px solid var(--border);overflow:hidden;
+}
+#cam{width:100%;height:100%;object-fit:contain;display:block}
+.no-signal{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;
+  background:radial-gradient(ellipse at center,rgba(13,17,23,.55) 0%,rgba(8,11,20,.96) 100%);
+  pointer-events:none;
+}
+.no-signal .icon{font-size:3.2rem;opacity:.25}
+.no-signal p{color:var(--text3);font-size:.8rem;margin-top:.6rem;letter-spacing:.05em}
+.cam-badge{
+  position:absolute;top:10px;left:10px;padding:.18rem .55rem;
+  border-radius:6px;font-size:.6rem;font-family:var(--mono);font-weight:600;
+  letter-spacing:.1em;background:rgba(0,0,0,.72);
+  border:1px solid var(--border);color:var(--text2);
+}
+.panel{background:var(--surface);overflow-y:auto;display:flex;flex-direction:column}
+.section{padding:1.1rem 1.2rem .9rem;border-bottom:1px solid var(--border)}
+.section:last-child{border-bottom:none}
+.sec-title{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:.85rem}
+.row{display:flex;justify-content:space-between;align-items:center;margin-bottom:.55rem;font-size:.8rem}
+.row:last-child{margin-bottom:0}
+.lbl{color:var(--text2)}
+.val{font-family:var(--mono);font-size:.75rem;font-weight:600}
+.btn-r{display:flex;gap:.5rem;margin-bottom:.5rem}
+.btn-r:last-child{margin-bottom:0}
+.btn{
+  flex:1;padding:.6rem .4rem;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface2);
+  color:var(--text);font-size:.75rem;font-weight:600;font-family:var(--sans);
+  cursor:pointer;transition:all .18s;text-align:center;
+}
+.btn:hover{background:var(--accent);border-color:var(--accent);color:#fff;transform:translateY(-1px);box-shadow:0 4px 16px rgba(99,102,241,.35)}
+.btn:active{transform:translateY(0)}
+.btn.a{background:var(--accent-d);border-color:var(--accent);color:var(--accent-l)}
+.btn.a:hover{background:var(--accent);color:#fff}
+.fg{margin-bottom:.65rem}
+.fg:last-child{margin-bottom:0}
+label.fl{display:block;font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:.3rem}
+select{
+  width:100%;padding:.5rem .7rem;background:var(--surface2);
+  border:1px solid var(--border);border-radius:8px;color:var(--text);
+  font-size:.8rem;font-family:var(--sans);outline:none;transition:border-color .2s;
+  -webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%2394A3B8' d='M5 7L0 2h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;
+}
+select:focus{border-color:var(--accent)}
+.tog-r{display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.tog-r:last-child{border-bottom:none}
+.tog-lbl{font-size:.8rem;color:var(--text2)}
+.sw{position:relative;display:inline-block;width:40px;height:21px}
+.sw input{opacity:0;width:0;height:0}
+.sl{position:absolute;inset:0;background:var(--surface2);border:1px solid var(--border);border-radius:21px;cursor:pointer;transition:.25s}
+.sl::before{content:'';position:absolute;width:13px;height:13px;left:3px;top:3px;background:var(--text3);border-radius:50%;transition:.25s}
+input:checked+.sl{background:var(--accent-d);border-color:var(--accent)}
+input:checked+.sl::before{transform:translateX(19px);background:var(--accent-l)}
+.batt{display:flex;align-items:center;gap:.4rem}
+.batt-b{width:28px;height:13px;border:1px solid var(--text3);border-radius:3px;padding:1px}
+.batt-f{height:100%;background:var(--green);border-radius:2px;transition:width .4s}
+.toast{
+  position:fixed;bottom:1.2rem;right:1.2rem;padding:.65rem 1.1rem;
+  background:var(--surface2);border:1px solid var(--accent);
+  border-radius:10px;font-size:.76rem;font-family:var(--mono);
+  color:var(--accent-l);box-shadow:0 8px 32px rgba(99,102,241,.25);
+  transform:translateY(80px);opacity:0;
+  transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:999;
+}
+.toast.show{transform:translateY(0);opacity:1}
+@media(max-width:680px){
+  .main{grid-template-columns:1fr;grid-template-rows:55vw 1fr;height:auto}
+  .preview{border-right:none;border-bottom:1px solid var(--border)}
+  .panel{overflow:visible;height:auto}
+}
+</style>
+</head>
+<body>
+<nav class='nav'>
+  <div class='logo'>STUDIO<span>CAM</span></div>
+  <div class='spacer'></div>
+  <div id='badge' class='off'><span class='dot'></span><span id='bt'>STANDBY</span></div>
+</nav>
+<div class='main'>
+  <div class='preview'>
+    <img id='cam' src='/preview' alt='Live Preview'>
+    <div class='no-signal' id='ns'>
+      <div class='icon'>&#128247;</div>
+      <p>CONNECTING TO CAMERA</p>
+      <p style='margin-top:.35rem;font-size:.72rem'>Preview appears here automatically</p>
+    </div>
+    <div class='cam-badge'>LIVE PREVIEW &middot; MJPEG</div>
+  </div>
+  <div class='panel'>
+    <div class='section'>
+      <div class='sec-title'>System Status</div>
+      <div class='row'><span class='lbl'>OBS Stream</span><span id='ss' class='val' style='color:var(--text3)'>STANDBY</span></div>
+      <div class='row'><span class='lbl'>Battery</span><span class='batt'><span id='bp' class='val'>--%</span><div class='batt-b'><div id='bf' class='batt-f' style='width:0'></div></div></span></div>
+      <div class='row'><span class='lbl'>Camera</span><span id='ac' class='val'>--</span></div>
+      <div class='row'><span class='lbl'>Resolution</span><span id='sr' class='val'>--</span></div>
+      <div class='row'><span class='lbl'>FPS / Bitrate</span><span id='sfb' class='val'>--</span></div>
+    </div>
+    <div class='section'>
+      <div class='sec-title'>Focus Control</div>
+      <div class='btn-r'>
+        <button id='taf' class='btn a'>&#127919; Trigger AF</button>
+        <button id='tam' class='btn'>&#128274; Lock Focus</button>
+      </div>
+      <div class='row' style='margin-top:.5rem'><span class='lbl'>Focus Mode</span><span id='fl' class='val' style='color:var(--green)'>AUTO-C</span></div>
+    </div>
+    <div class='section'>
+      <div class='sec-title'>Camera &amp; Stream</div>
+      <div class='fg'><label class='fl' for='cs'>Sensor</label><select id='cs'></select></div>
+      <div class='fg'><label class='fl' for='rs'>Resolution</label><select id='rs'></select></div>
+      <div class='fg'><label class='fl' for='fs'>Framerate</label>
+        <select id='fs'>
+          <option value='15'>15 FPS</option>
+          <option value='24'>24 FPS</option>
+          <option value='30'>30 FPS</option>
+          <option value='60'>60 FPS</option>
+        </select>
+      </div>
+      <div class='fg'><label class='fl' for='bs'>Bitrate</label>
+        <select id='bs'>
+          <option value='1000000'>1.0 Mbps</option>
+          <option value='2000000'>2.0 Mbps</option>
+          <option value='3000000'>3.0 Mbps</option>
+          <option value='3500000'>3.5 Mbps</option>
+          <option value='4000000'>4.0 Mbps</option>
+          <option value='5000000'>5.0 Mbps</option>
+          <option value='6000000'>6.0 Mbps</option>
+          <option value='10000000'>10 Mbps</option>
+        </select>
+      </div>
+    </div>
+    <div class='section'>
+      <div class='sec-title'>Preferences</div>
+      <div class='tog-r'><span class='tog-lbl'>Face Auto-Focus</span><label class='sw'><input type='checkbox' id='tfa'><span class='sl'></span></label></div>
+      <div class='tog-r'><span class='tog-lbl'>Keep Screen On</span><label class='sw'><input type='checkbox' id='tso'><span class='sl'></span></label></div>
+      <div class='tog-r'><span class='tog-lbl'>Flip Horizontal</span><label class='sw'><input type='checkbox' id='tfh'><span class='sl'></span></label></div>
+      <div class='tog-r'><span class='tog-lbl'>Flip Vertical</span><label class='sw'><input type='checkbox' id='tfv'><span class='sl'></span></label></div>
+    </div>
+  </div>
+</div>
+<div id='toast' class='toast'></div>
+<script>
+let loaded=false;
+const T=id=>document.getElementById(id);
+function toast(m){const t=T('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
+async function api(k,v){
+  try{await fetch('/api/set?key='+encodeURIComponent(k)+'&val='+encodeURIComponent(v));
+  toast('\u2713 '+k.replace(/_/g,' ').toUpperCase());fetchStatus();}catch(e){toast('Error')}
+}
+T('cs').onchange=e=>api('camera',e.target.value);
+T('rs').onchange=e=>api('resolution',e.target.value);
+T('fs').onchange=e=>api('framerate',e.target.value);
+T('bs').onchange=e=>api('bitrate',e.target.value);
+T('tfa').onchange=e=>api('face_auto_focus',e.target.checked);
+T('tso').onchange=e=>api('keep_screen_on',e.target.checked);
+T('tfh').onchange=e=>api('flip_horizontal',e.target.checked);
+T('tfv').onchange=e=>api('flip_vertical',e.target.checked);
+T('taf').onclick=()=>api('trigger_af','now');
+T('tam').onclick=()=>api('toggle_af_mode','now');
+async function fetchStatus(){
+  try{
+    const r=await fetch('/api/status');if(!r.ok)return;
+    const d=await r.json();
+    const b=T('badge'),bt=T('bt'),ss=T('ss');
+    if(d.isStreaming){b.classList.remove('off');bt.textContent='OBS LIVE';
+      ss.textContent='STREAMING';ss.style.color='var(--green)';
+    }else{b.classList.add('off');bt.textContent='STANDBY';
+      ss.textContent='STANDBY';ss.style.color='var(--text3)';}
+    T('bp').textContent=d.battery+'%';T('bf').style.width=d.battery+'%';
+    const cam=d.availableCameras.find(c=>c.id===d.activeCameraId);
+    T('ac').textContent=cam?'Cam '+d.activeCameraId+' ('+cam.facing+')':'Cam '+d.activeCameraId;
+    T('sr').textContent=d.resolution;
+    T('sfb').textContent=d.framerate+' FPS / '+(d.bitrate/1e6).toFixed(1)+' Mbps';
+    const fl=T('fl');fl.textContent=d.isAutofocusLocked?'LOCKED':'AUTO-C';
+    fl.style.color=d.isAutofocusLocked?'var(--amber)':'var(--green)';
+    if(!loaded){
+      loaded=true;
+      const cs=T('cs');cs.innerHTML='';
+      d.availableCameras.forEach(c=>{const o=document.createElement('option');
+        o.value=c.id;o.textContent='Camera '+c.id+' ('+c.facing+')';
+        o.selected=c.id===d.activeCameraId;cs.appendChild(o);});
+      const rs=T('rs');rs.innerHTML='';
+      d.availableResolutions.forEach(r=>{const o=document.createElement('option');
+        o.value=r;o.textContent=r;o.selected=r===d.resolution;rs.appendChild(o);});
+      T('fs').value=d.framerate;T('bs').value=d.bitrate;
+      T('tfa').checked=d.faceAutoFocus;T('tso').checked=d.keepScreenOn;
+      T('tfh').checked=d.flipHorizontal;T('tfv').checked=d.flipVertical;
+    }
+  }catch(e){console.warn(e)}
+}
+// MJPEG reconnect
+const cam=T('cam'),ns=T('ns');
+function recon(){cam.style.display='block';cam.src='/preview?t='+Date.now()}
+cam.onerror=()=>{cam.style.display='none';ns.style.display='flex';setTimeout(recon,3000)};
+cam.onload=()=>{ns.style.display='none';cam.style.display='block'};
+fetchStatus();
+setInterval(fetchStatus,2000);
+</script>
+</body></html>
+"""
