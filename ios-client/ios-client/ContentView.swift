@@ -824,7 +824,7 @@ struct SettingsSheetView: View {
                         saveSettings()
                         showSettings = false
                     }
-                    .font(.system(.body, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(DesignTokens.accent)
                 }
             }
