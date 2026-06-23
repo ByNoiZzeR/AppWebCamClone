@@ -496,7 +496,7 @@ struct SettingsSheetView: View {
     @State private var selectedFramerate = 30
     @State private var selectedBitrate = 3000000
     
-    let resolutions = ["640x480", "1280x720", "1920x1080"]
+    let resolutions = ["640x480", "1280x720", "1920x1080", "2560x1440", "3840x2160"]
     let formats = ["avc", "hevc", "jpg"]
     let framerates = [15, 24, 30, 60]
     let bitrates = [
@@ -504,7 +504,10 @@ struct SettingsSheetView: View {
         2000000: "2.0 Mbps",
         3000000: "3.0 Mbps",
         5000000: "5.0 Mbps",
-        10000000: "10.0 Mbps"
+        10000000: "10.0 Mbps",
+        15000000: "15.0 Mbps",
+        20000000: "20.0 Mbps",
+        30000000: "30.0 Mbps"
     ]
     
     var body: some View {

@@ -126,7 +126,20 @@ class CameraStreamer: NSObject, ObservableObject {
         // Match resolution preset in captureSession if needed
         DispatchQueue.global(qos: .userInitiated).async {
             self.captureSession.beginConfiguration()
-            if width >= 1920 && height >= 1080 {
+            if width >= 3840 && height >= 2160 {
+                if self.captureSession.canSetSessionPreset(.hd4K3840x2160) {
+                    self.captureSession.sessionPreset = .hd4K3840x2160
+                } else if self.captureSession.canSetSessionPreset(.hd1920x1080) {
+                    self.captureSession.sessionPreset = .hd1920x1080
+                }
+            } else if width >= 2560 && height >= 1440 {
+                if self.captureSession.canSetSessionPreset(.hd4K3840x2160) {
+                    // Capture in 4K, let VideoToolbox downscale to 2K (2560x1440) during compression
+                    self.captureSession.sessionPreset = .hd4K3840x2160
+                } else if self.captureSession.canSetSessionPreset(.hd1920x1080) {
+                    self.captureSession.sessionPreset = .hd1920x1080
+                }
+            } else if width >= 1920 && height >= 1080 {
                 if self.captureSession.canSetSessionPreset(.hd1920x1080) {
                     self.captureSession.sessionPreset = .hd1920x1080
                 }
