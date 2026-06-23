@@ -356,7 +356,7 @@ class SocketServer: ObservableObject {
         return queryItems.first(where: { $0.name == key })?.value
     }
     
-    private let HTML_PAGE = """
+    private let HTML_PAGE = #"""
 <!DOCTYPE html>
 <html lang='en'>
 <head>
@@ -600,6 +600,6 @@ fetchStatus();
 setInterval(fetchStatus,2000);
 </script>
 </body></html>
-"""
+"""#
 
 }
