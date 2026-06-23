@@ -3,6 +3,37 @@ import AVFoundation
 import SystemConfiguration
 import Darwin
 
+// MARK: - iOS 26 Design System
+struct DesignTokens {
+    // Backgrounds
+    static let background = Color.black
+    static let surface = Color(red: 28/255, green: 28/255, blue: 30/255)
+    static let surfaceGlass = Color(red: 44/255, green: 44/255, blue: 46/255).opacity(0.7)
+    
+    // Text
+    static let label = Color.white
+    static let labelSecondary = Color(red: 142/255, green: 142/255, blue: 147/255)
+    static let labelTertiary = Color(red: 99/255, green: 99/255, blue: 102/255)
+    
+    // Separators
+    static let separator = Color(red: 56/255, green: 56/255, blue: 58/255)
+    
+    // Accents
+    static let accent = Color(red: 0/255, green: 122/255, blue: 255/255) // System Blue
+    static let green = Color(red: 48/255, green: 209/255, blue: 88/255)  // System Green
+    static let orange = Color(red: 255/255, green: 159/255, blue: 10/255) // System Orange
+    static let red = Color(red: 255/255, green: 69/255, blue: 58/255)     // System Red
+    static let indigo = Color(red: 94/255, green: 92/255, blue: 230/255)  // System Indigo
+    static let pink = Color(red: 255/255, green: 55/255, blue: 95/255)    // System Pink
+    static let teal = Color(red: 100/255, green: 210/255, blue: 255/255)  // System Teal
+    
+    // Radii
+    static let radiusSmall: CGFloat = 10
+    static let radiusMedium: CGFloat = 16
+    static let radiusLarge: CGFloat = 24
+    static let radiusXL: CGFloat = 28
+}
+
 struct ContentView: View {
     @StateObject private var settings = SettingsManager.shared
     @StateObject private var socketServer = SocketServer()
@@ -14,6 +45,7 @@ struct ContentView: View {
     @State private var guideMode = 0 // 0: None, 1: 3x3 Grid, 2: Crosshair, 3: TikTok 9:16
     @State private var isPreviewMuted = false
     @State private var isDimMode = false
+    @State private var isUiHidden = false
     
     // Timer to update local telemetry (temp, battery)
     @State private var batteryPercent = 100
@@ -28,8 +60,8 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            // Deep navy studio background
-            Color(red: 8/255, green: 11/255, blue: 20/255)
+            // Full black camera background
+            Color.black
                 .ignoresSafeArea()
             
             // 1. Live Camera Preview (if not muted)
@@ -39,23 +71,21 @@ struct ContentView: View {
             } else {
                 // Preview Mute screen
                 ZStack {
-                    Color(red: 5/255, green: 5/255, blue: 8/255)
+                    Color.black
                         .ignoresSafeArea()
                     
-                    VStack(spacing: 12) {
+                    VStack(spacing: 16) {
                         Image(systemName: "video.slash.fill")
-                            .font(.system(size: 64))
-                            .foregroundColor(.orange)
+                            .font(.system(size: 52, weight: .light))
+                            .foregroundColor(DesignTokens.orange)
                         
-                        Text("PREVIEW PAUSED")
-                            .font(.system(.headline, design: .rounded))
-                            .fontWeight(.bold)
-                            .foregroundColor(.orange)
-                            .tracking(2)
+                        Text("Preview Paused")
+                            .font(.system(size: 20, weight: .semibold, design: .rounded))
+                            .foregroundColor(DesignTokens.label)
                         
                         Text("OBS stream is still active")
-                            .font(.system(.subheadline, design: .monospaced))
-                            .foregroundColor(Color(red: 0, green: 1, blue: 0.4))
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundColor(DesignTokens.green)
                     }
                 }
             }
@@ -68,13 +98,20 @@ struct ContentView: View {
             
             // 3. Main HUD UI
             VStack(spacing: 0) {
-                // Top HUD minimal bar
-                topHudView
+                if !isUiHidden {
+                    // Top HUD
+                    topHudView
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 
                 Spacer()
+                    .allowsHitTesting(false)
                 
-                // Bottom control panel (visible only when UI is not hidden)
-                bottomPanel
+                if !isUiHidden {
+                    // Bottom control panel
+                    bottomPanel
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
             .ignoresSafeArea(.all, edges: .top)
             
@@ -82,6 +119,11 @@ struct ContentView: View {
             if isDimMode {
                 DimModeOverlay(isDimMode: $isDimMode)
                     .ignoresSafeArea()
+            }
+        }
+        .onTapGesture(count: 2) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                isUiHidden.toggle()
             }
         }
         .onAppear {
@@ -188,139 +230,121 @@ struct ContentView: View {
         }
     }
     
-    // MARK: - Top HUD
+    // MARK: - Top HUD — iOS 26 Dynamic Island Style
     private var topHudView: some View {
         let isLandscape = verticalSizeClass == .compact
-        return HStack(spacing: 12) {
-            // Logo
-            HStack(spacing: 2) {
-                Text("STUDIO")
-                    .foregroundColor(Color(red: 129/255, green: 140/255, blue: 248/255))
-                    .fontWeight(.bold)
-                    .tracking(2)
-                Text("CAM")
-                    .foregroundColor(Color(red: 148/255, green: 163/255, blue: 184/255))
-                    .fontWeight(.light)
-                    .tracking(2)
-            }
-            .font(.system(size: 13))
+        return HStack(spacing: 10) {
+            // App Name — clean SF Pro
+            Text("Studio Cam")
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(DesignTokens.label)
             
             Spacer()
             
-            // Status LED Badge
+            // Status Pill — Dynamic Island inspired
             HStack(spacing: 6) {
                 Circle()
-                    .fill(socketServer.isStreaming ? Color.green : Color.red)
-                    .frame(width: 6, height: 6)
-                    .opacity(socketServer.isStreaming ? 1.0 : 0.6)
+                    .fill(socketServer.isStreaming ? DesignTokens.green : DesignTokens.labelSecondary)
+                    .frame(width: 7, height: 7)
                 
-                Text(socketServer.isStreaming ? "OBS LIVE" : "STANDBY")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(socketServer.isStreaming ? .green : .red)
-                    .tracking(1)
+                Text(socketServer.isStreaming ? "Live" : "Standby")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(socketServer.isStreaming ? DesignTokens.green : DesignTokens.labelSecondary)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(socketServer.isStreaming ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
-                    .overlay(
-                        Capsule().stroke(socketServer.isStreaming ? Color.green.opacity(0.4) : Color.red.opacity(0.4), lineWidth: 1)
-                    )
+                    .fill(socketServer.isStreaming
+                          ? DesignTokens.green.opacity(0.15)
+                          : Color.white.opacity(0.08))
             )
             
             Spacer()
             
-            // IP / Port Text
-            Text("\(getWiFiAddress() ?? "No WiFi"): \(settings.port)")
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundColor(Color(red: 148/255, green: 163/255, blue: 184/255))
+            // IP : Port
+            Text("\(getWiFiAddress() ?? "No WiFi"):\(settings.port)")
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundColor(DesignTokens.labelTertiary)
             
-            // Dim Mode Moon Button
+            // Dim Mode Button
             Button(action: {
                 isDimMode = true
             }) {
-                Text("◐")
-                    .font(.system(size: 18))
-                    .foregroundColor(Color(red: 99/255, green: 102/255, blue: 241/255))
-                    .padding(4)
+                Image(systemName: "moon.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(DesignTokens.labelSecondary)
+                    .frame(width: 30, height: 30)
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(0.08))
+                    )
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, isLandscape ? 8 : 48) // Safe area padding
-        .padding(.bottom, isLandscape ? 8 : 12)
+        .padding(.top, isLandscape ? 8 : 52)
+        .padding(.bottom, 10)
         .background(
-            Color(red: 8/255, green: 11/255, blue: 20/255).opacity(0.92)
-                .overlay(
-                    Rectangle().frame(height: 1).foregroundColor(Color(red: 30/255, green: 41/255, blue: 64/255)), alignment: .bottom
-                )
+            Material.ultraThinMaterial
         )
     }
     
-    // MARK: - Bottom Panel
+    // MARK: - Bottom Panel — iOS 26 Glass Sheet
     private var bottomPanel: some View {
         let isLandscape = verticalSizeClass == .compact
-        return VStack(spacing: isLandscape ? 6 : 12) {
-            // Telemetry Grid
+        return VStack(spacing: isLandscape ? 8 : 14) {
+            // Telemetry Metrics Row
             HStack(spacing: 6) {
-                TelemetryCard(label: "RATE", value: socketServer.txRateText, color: Color(red: 129/255, green: 140/255, blue: 248/255))
-                TelemetryCard(label: "TOTAL", value: socketServer.totalTxText, color: Color(red: 129/255, green: 140/255, blue: 248/255))
+                MetricTile(label: "Rate", value: socketServer.txRateText, color: DesignTokens.accent)
+                MetricTile(label: "Total", value: socketServer.totalTxText, color: DesignTokens.accent)
                 if !isLandscape {
-                    TelemetryCard(label: "TEMP", value: deviceTemp, color: .green)
-                    TelemetryCard(label: "BATTERY", value: "\(batteryPercent)%", color: .green)
+                    MetricTile(label: "Temp", value: deviceTemp, color: DesignTokens.green)
+                    MetricTile(label: "Battery", value: "\(batteryPercent)%", color: DesignTokens.green)
                 }
-                TelemetryCard(label: "FOCUS", value: streamer.focusModeText, color: .green)
-                TelemetryCard(label: "FILTER", value: streamer.filterModeText, color: Color(red: 148/255, green: 163/255, blue: 184/255))
+                MetricTile(label: "Focus", value: streamer.focusModeText, color: DesignTokens.teal)
+                MetricTile(label: "Filter", value: streamer.filterModeText, color: DesignTokens.labelSecondary)
             }
-            .frame(height: isLandscape ? 36 : 48)
+            .frame(height: isLandscape ? 42 : 52)
             
-            Divider()
-                .background(Color(red: 30/255, green: 41/255, blue: 64/255))
-            
-            // Action Buttons
-            HStack(spacing: 6) {
-                ActionButton(icon: "arrow.triangle.2.circlepath", title: "FLIP") {
+            // Action Buttons Row
+            HStack(spacing: isLandscape ? 6 : 10) {
+                CircleActionButton(icon: "arrow.triangle.2.circlepath", label: "Flip", isActive: false, activeColor: DesignTokens.accent) {
                     streamer.switchCamera()
                 }
                 
-                ActionButton(icon: "bolt.fill", title: "LIGHT", isActive: streamer.torchEnabled, activeColor: .amber) {
+                CircleActionButton(icon: "bolt.fill", label: "Light", isActive: streamer.torchEnabled, activeColor: DesignTokens.orange) {
                     streamer.toggleTorch()
                 }
                 
-                ActionButton(icon: "paintpalette.fill", title: "FILTER") {
+                CircleActionButton(icon: "paintpalette.fill", label: "Filter", isActive: false, activeColor: DesignTokens.pink) {
                     streamer.cycleFilter()
                 }
                 
-                ActionButton(icon: "scope", title: "FOCUS") {
+                CircleActionButton(icon: "scope", label: "Focus", isActive: false, activeColor: DesignTokens.green) {
                     streamer.triggerAutofocus()
                 }
                 
-                ActionButton(icon: "gearshape.fill", title: "SETUP") {
+                CircleActionButton(icon: "gearshape.fill", label: "Settings", isActive: false, activeColor: DesignTokens.labelSecondary) {
                     showSettings = true
                 }
                 
-                ActionButton(icon: "grid", title: "GUIDE", isActive: guideMode > 0, activeColor: .sky) {
+                CircleActionButton(icon: "grid", label: "Guide", isActive: guideMode > 0, activeColor: DesignTokens.teal) {
                     guideMode = (guideMode + 1) % 4
                 }
                 
-                ActionButton(icon: isPreviewMuted ? "eye.slash.fill" : "eye.fill", title: "PRVW", isActive: isPreviewMuted, activeColor: .orange) {
+                CircleActionButton(icon: isPreviewMuted ? "eye.slash.fill" : "eye.fill", label: "Preview", isActive: isPreviewMuted, activeColor: DesignTokens.orange) {
                     isPreviewMuted.toggle()
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, isLandscape ? 8 : 14)
-        .padding(.bottom, isLandscape ? 8 : 24)
+        .padding(.horizontal, 16)
+        .padding(.top, isLandscape ? 10 : 16)
+        .padding(.bottom, isLandscape ? 10 : 28)
         .background(
-            Color(red: 8/255, green: 11/255, blue: 20/255).opacity(0.94)
-                .cornerRadius(18, corners: [.topLeft, .topRight])
-                .overlay(
-                    RoundedCorner(radius: 18, corners: [.topLeft, .topRight])
-                        .stroke(Color(red: 30/255, green: 41/255, blue: 64/255), lineWidth: 1)
-                )
+            RoundedCorner(radius: DesignTokens.radiusXL, corners: [.topLeft, .topRight])
+                .fill(Material.regularMaterial)
         )
-        .padding(.horizontal, 12)
-        .padding(.bottom, isLandscape ? 4 : 12)
+        .padding(.horizontal, 8)
     }
     
     // MARK: - Helpers
@@ -368,6 +392,7 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Camera Preview UIView
 class PreviewUIView: UIView {
     private var previewLayer: AVCaptureVideoPreviewLayer?
     
@@ -431,72 +456,72 @@ struct CameraPreview: UIViewRepresentable {
     }
 }
 
-// MARK: - Telemetry Card UI
-struct TelemetryCard: View {
+// MARK: - Metric Tile (iOS 26 Style)
+struct MetricTile: View {
     let label: String
     let value: String
     let color: Color
     
     var body: some View {
         VStack(spacing: 3) {
-            Text(label)
-                .font(.system(size: 7, weight: .bold))
-                .foregroundColor(Color(red: 148/255, green: 163/255, blue: 184/255))
-                .tracking(0.5)
-            
             Text(value)
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            
+            Text(label)
+                .font(.system(size: 8, weight: .medium))
+                .foregroundColor(DesignTokens.labelTertiary)
+                .textCase(.uppercase)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(red: 22/255, green: 27/255, blue: 39/255))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(red: 30/255, green: 41/255, blue: 64/255), lineWidth: 1)
-                )
+            RoundedRectangle(cornerRadius: DesignTokens.radiusSmall)
+                .fill(Color.white.opacity(0.06))
         )
     }
 }
 
-// MARK: - Action Button UI
-struct ActionButton: View {
+// MARK: - Circle Action Button (iOS 26 Style)
+struct CircleActionButton: View {
     let icon: String
-    let title: String
+    let label: String
     var isActive: Bool = false
-    var activeColor: Color = .blue
+    var activeColor: Color = DesignTokens.accent
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                Text(title)
-                    .font(.system(size: 9, weight: .bold))
-                    .tracking(0.5)
+            VStack(spacing: 5) {
+                ZStack {
+                    Circle()
+                        .fill(isActive ? activeColor : Color.white.opacity(0.1))
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(isActive ? .black : .white)
+                }
+                
+                Text(label)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(isActive ? activeColor : DesignTokens.labelSecondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .foregroundColor(isActive ? .white : Color(red: 241/255, green: 245/255, blue: 249/255))
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(isActive ? activeColor : Color(red: 22/255, green: 27/255, blue: 39/255))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(isActive ? activeColor : Color(red: 30/255, green: 41/255, blue: 64/255), lineWidth: 1)
-                    )
-            )
         }
+        .buttonStyle(ScaleButtonStyle())
     }
 }
 
-// Color Extensions for HUD Buttons
-extension Color {
-    static let amber = Color(red: 245/255, green: 158/255, blue: 11/255)
-    static let sky = Color(red: 56/255, green: 189/255, blue: 248/255)
+// MARK: - Scale Button Style (iOS 26 micro-interaction)
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+    }
 }
 
 // MARK: - Guides Overlay Drawings
@@ -522,7 +547,7 @@ struct GuidesOverlay: View {
                         path.move(to: CGPoint(x: 0, y: h * 2 / 3))
                         path.addLine(to: CGPoint(x: w, y: h * 2 / 3))
                     }
-                    .stroke(Color.indigo.opacity(0.4), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
                 } else if mode == 2 {
                     // Crosshair
                     ZStack {
@@ -532,10 +557,10 @@ struct GuidesOverlay: View {
                             path.move(to: CGPoint(x: w/2 - 20, y: h/2))
                             path.addLine(to: CGPoint(x: w/2 + 20, y: h/2))
                         }
-                        .stroke(Color.indigo.opacity(0.4), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
                         
                         Circle()
-                            .stroke(Color.indigo.opacity(0.4), lineWidth: 1)
+                            .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
                             .frame(width: 16, height: 16)
                     }
                 } else if mode == 3 {
@@ -546,16 +571,16 @@ struct GuidesOverlay: View {
                     
                     ZStack {
                         // Side dimming overlays
-                        Color.black.opacity(0.6)
+                        Color.black.opacity(0.5)
                             .frame(width: left, height: h)
                             .position(x: left / 2, y: h / 2)
                         
-                        Color.black.opacity(0.6)
+                        Color.black.opacity(0.5)
                             .frame(width: left, height: h)
                             .position(x: w - left / 2, y: h / 2)
                         
                         Rectangle()
-                            .stroke(Color.indigo.opacity(0.4), lineWidth: 1.5)
+                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
                             .frame(width: boxW, height: boxH)
                     }
                 }
@@ -577,16 +602,14 @@ struct DimModeOverlay: View {
                     isDimMode = false
                 }
             
-            VStack(spacing: 8) {
-                Text("STREAMING ACTIVE")
-                    .font(.system(.headline, design: .rounded))
-                    .fontWeight(.bold)
-                    .foregroundColor(Color.green.opacity(0.4))
-                    .tracking(2)
+            VStack(spacing: 10) {
+                Text("Streaming Active")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(DesignTokens.green.opacity(0.5))
                 
                 Text("Tap anywhere to restore screen")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(Color.gray.opacity(0.4))
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(DesignTokens.labelTertiary.opacity(0.5))
             }
             .offset(textOffset)
             .animation(.easeInOut(duration: 2.0), value: textOffset)
@@ -599,14 +622,13 @@ struct DimModeOverlay: View {
                 textOffset = CGSize(width: randX, height: randY)
             }
             .onAppear {
-                // Initialize floating offset
                 textOffset = CGSize(width: 10, height: -20)
             }
         }
     }
 }
 
-// MARK: - Settings Control Dialog / Sheet
+// MARK: - Settings Sheet — iOS 26 Grouped List Style
 struct SettingsSheetView: View {
     @Binding var showSettings: Bool
     @ObservedObject var socketServer: SocketServer
@@ -622,73 +644,186 @@ struct SettingsSheetView: View {
     let resolutions = ["640x480", "1280x720", "1920x1080", "2560x1440", "3840x2160"]
     let formats = ["avc", "hevc", "jpg"]
     let framerates = [15, 24, 30, 60]
-    let bitrates = [
-        1000000: "1.0 Mbps",
-        2000000: "2.0 Mbps",
-        3000000: "3.0 Mbps",
-        5000000: "5.0 Mbps",
-        10000000: "10.0 Mbps",
-        15000000: "15.0 Mbps",
-        20000000: "20.0 Mbps",
-        30000000: "30.0 Mbps"
+    let bitrates: [(value: Int, label: String)] = [
+        (1000000, "1 Mbps"),
+        (2000000, "2 Mbps"),
+        (3000000, "3 Mbps"),
+        (5000000, "5 Mbps"),
+        (10000000, "10 Mbps"),
+        (15000000, "15 Mbps"),
+        (20000000, "20 Mbps"),
+        (30000000, "30 Mbps")
     ]
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(header: Text("Network Connection")) {
-                    HStack {
-                        Text("Port")
-                        Spacer()
-                        TextField("Port", text: $localPort)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Drag Indicator
+                    Capsule()
+                        .fill(Color.white.opacity(0.2))
+                        .frame(width: 36, height: 5)
+                        .padding(.top, 8)
+                    
+                    // Network Section
+                    SettingsSection(title: "Network") {
+                        HStack {
+                            Label("Port", systemImage: "network")
+                                .font(.system(size: 15, weight: .regular))
+                                .foregroundColor(DesignTokens.label)
+                            Spacer()
+                            TextField("Port", text: $localPort)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                                .font(.system(size: 15, weight: .regular, design: .monospaced))
+                                .foregroundColor(DesignTokens.accent)
+                                .frame(width: 80)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                    }
+                    
+                    // Video Section
+                    SettingsSection(title: "Video Encoder") {
+                        VStack(spacing: 0) {
+                            // Format
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Format")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(DesignTokens.labelSecondary)
+                                    .padding(.horizontal, 16)
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(formats, id: \.self) { format in
+                                            ChipButton(
+                                                title: format.uppercased(),
+                                                isSelected: selectedFormat == format
+                                            ) {
+                                                selectedFormat = format
+                                            }
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
+                            }
+                            .padding(.vertical, 12)
+                            
+                            Divider().background(DesignTokens.separator)
+                                .padding(.horizontal, 16)
+                            
+                            // Resolution
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Resolution")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(DesignTokens.labelSecondary)
+                                    .padding(.horizontal, 16)
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(resolutions, id: \.self) { res in
+                                            ChipButton(
+                                                title: resolutionLabel(res),
+                                                isSelected: selectedResolution == res
+                                            ) {
+                                                selectedResolution = res
+                                            }
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
+                            }
+                            .padding(.vertical, 12)
+                            
+                            Divider().background(DesignTokens.separator)
+                                .padding(.horizontal, 16)
+                            
+                            // Framerate
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Framerate")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(DesignTokens.labelSecondary)
+                                    .padding(.horizontal, 16)
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(framerates, id: \.self) { fps in
+                                            ChipButton(
+                                                title: "\(fps) FPS",
+                                                isSelected: selectedFramerate == fps
+                                            ) {
+                                                selectedFramerate = fps
+                                            }
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
+                            }
+                            .padding(.vertical, 12)
+                            
+                            Divider().background(DesignTokens.separator)
+                                .padding(.horizontal, 16)
+                            
+                            // Bitrate
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Bitrate")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(DesignTokens.labelSecondary)
+                                    .padding(.horizontal, 16)
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(bitrates, id: \.value) { br in
+                                            ChipButton(
+                                                title: br.label,
+                                                isSelected: selectedBitrate == br.value
+                                            ) {
+                                                selectedBitrate = br.value
+                                            }
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
+                            }
+                            .padding(.vertical, 12)
+                        }
+                    }
+                    
+                    // Preferences Section
+                    SettingsSection(title: "Preferences") {
+                        VStack(spacing: 0) {
+                            SettingsToggleRow(icon: "sun.max.fill", title: "Keep Screen On", isOn: $settings.keepScreenOn)
+                            Divider().background(DesignTokens.separator).padding(.horizontal, 16)
+                            SettingsToggleRow(icon: "arrow.left.and.right", title: "Flip Horizontal", isOn: $settings.flipHorizontal)
+                            Divider().background(DesignTokens.separator).padding(.horizontal, 16)
+                            SettingsToggleRow(icon: "arrow.up.and.down", title: "Flip Vertical", isOn: $settings.flipVertical)
+                            Divider().background(DesignTokens.separator).padding(.horizontal, 16)
+                            SettingsToggleRow(icon: "face.smiling", title: "Face Auto-Focus", isOn: $settings.faceAutoFocus)
+                        }
                     }
                 }
-                
-                Section(header: Text("Video Encoder Setup")) {
-                    Picker("Format", selection: $selectedFormat) {
-                        ForEach(formats, id: \.self) { format in
-                            Text(format.uppercased()).tag(format)
-                        }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 40)
+            }
+            .background(Color(red: 18/255, green: 18/255, blue: 20/255).ignoresSafeArea())
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        showSettings = false
                     }
-                    
-                    Picker("Resolution", selection: $selectedResolution) {
-                        ForEach(resolutions, id: \.self) { res in
-                            Text(res).tag(res)
-                        }
-                    }
-                    
-                    Picker("Framerate", selection: $selectedFramerate) {
-                        ForEach(framerates, id: \.self) { fps in
-                            Text("\(fps) FPS").tag(fps)
-                        }
-                    }
-                    
-                    Picker("Bitrate", selection: $selectedBitrate) {
-                        ForEach(bitrates.keys.sorted(), id: \.self) { br in
-                            Text(bitrates[br] ?? "").tag(br)
-                        }
-                    }
+                    .foregroundColor(DesignTokens.accent)
                 }
-                
-                Section(header: Text("Preferences")) {
-                    Toggle("Keep Screen On", isOn: $settings.keepScreenOn)
-                    Toggle("Flip Horizontal", isOn: $settings.flipHorizontal)
-                    Toggle("Flip Vertical", isOn: $settings.flipVertical)
-                    Toggle("Face Auto-Focus", isOn: $settings.faceAutoFocus)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        saveSettings()
+                        showSettings = false
+                    }
+                    .fontWeight(.semibold)
+                    .foregroundColor(DesignTokens.accent)
                 }
             }
-            .navigationTitle("Configuration")
-            .navigationBarItems(
-                leading: Button("Cancel") {
-                    showSettings = false
-                },
-                trailing: Button("Save") {
-                    saveSettings()
-                    showSettings = false
-                }
-            )
             .onAppear {
                 localPort = String(settings.port)
                 selectedResolution = settings.resolution
@@ -698,6 +833,17 @@ struct SettingsSheetView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+    
+    private func resolutionLabel(_ res: String) -> String {
+        switch res {
+        case "3840x2160": return "4K"
+        case "2560x1440": return "2K"
+        case "1920x1080": return "1080p"
+        case "1280x720": return "720p"
+        case "640x480": return "480p"
+        default: return res
+        }
     }
     
     private func saveSettings() {
@@ -714,6 +860,72 @@ struct SettingsSheetView: View {
         
         // Apply keep screen on state
         UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
+    }
+}
+
+// MARK: - Settings Section Container
+struct SettingsSection<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(DesignTokens.labelTertiary)
+                .padding(.horizontal, 4)
+            
+            VStack(spacing: 0) {
+                content
+            }
+            .background(
+                RoundedRectangle(cornerRadius: DesignTokens.radiusMedium)
+                    .fill(DesignTokens.surface)
+            )
+        }
+    }
+}
+
+// MARK: - Settings Toggle Row
+struct SettingsToggleRow: View {
+    let icon: String
+    let title: String
+    @Binding var isOn: Bool
+    
+    var body: some View {
+        HStack {
+            Label(title, systemImage: icon)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundColor(DesignTokens.label)
+            Spacer()
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .tint(DesignTokens.green)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+}
+
+// MARK: - Chip Button (Segmented Selection)
+struct ChipButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .foregroundColor(isSelected ? .black : DesignTokens.labelSecondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.white : Color.white.opacity(0.08))
+                )
+        }
+        .buttonStyle(ScaleButtonStyle())
     }
 }
 
