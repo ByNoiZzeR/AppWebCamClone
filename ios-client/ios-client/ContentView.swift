@@ -353,50 +353,66 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Camera Preview Layer Representable
-struct CameraPreview: UIViewRepresentable {
-    let session: AVCaptureSession
+class PreviewUIView: UIView {
+    private var previewLayer: AVCaptureVideoPreviewLayer?
     
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
+    init(session: AVCaptureSession) {
+        super.init(frame: .zero)
         let previewLayer = AVCaptureVideoPreviewLayer(session: session)
         previewLayer.videoGravity = .resizeAspectFill
-        view.layer.addSublayer(previewLayer)
-        context.coordinator.previewLayer = previewLayer
-        return view
+        self.layer.addSublayer(previewLayer)
+        self.previewLayer = previewLayer
     }
     
-    func updateUIView(_ uiView: UIView, context: Context) {
-        DispatchQueue.main.async {
-            guard let previewLayer = context.coordinator.previewLayer else { return }
-            previewLayer.frame = uiView.bounds
-            
-            if let connection = previewLayer.connection, connection.isVideoOrientationSupported {
-                if let windowScene = uiView.window?.windowScene {
-                    let orientation = windowScene.interfaceOrientation
-                    switch orientation {
-                    case .portrait:
-                        connection.videoOrientation = .portrait
-                    case .portraitUpsideDown:
-                        connection.videoOrientation = .portraitUpsideDown
-                    case .landscapeLeft:
-                        connection.videoOrientation = .landscapeLeft
-                    case .landscapeRight:
-                        connection.videoOrientation = .landscapeRight
-                    default:
-                        break
-                    }
-                }
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        previewLayer?.frame = self.bounds
+        CATransaction.commit()
+        
+        updateOrientation()
+    }
+    
+    func updateOrientation() {
+        guard let connection = previewLayer?.connection, connection.isVideoOrientationSupported else { return }
+        if let windowScene = self.window?.windowScene {
+            let orientation = windowScene.interfaceOrientation
+            switch orientation {
+            case .portrait:
+                connection.videoOrientation = .portrait
+            case .portraitUpsideDown:
+                connection.videoOrientation = .portraitUpsideDown
+            case .landscapeLeft:
+                connection.videoOrientation = .landscapeLeft
+            case .landscapeRight:
+                connection.videoOrientation = .landscapeRight
+            default:
+                break
             }
         }
     }
     
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        updateOrientation()
+    }
+}
+
+struct CameraPreview: UIViewRepresentable {
+    let session: AVCaptureSession
+    
+    func makeUIView(context: Context) -> PreviewUIView {
+        return PreviewUIView(session: session)
     }
     
-    class Coordinator {
-        var previewLayer: AVCaptureVideoPreviewLayer?
+    func updateUIView(_ uiView: PreviewUIView, context: Context) {
+        uiView.updateOrientation()
     }
 }
 
