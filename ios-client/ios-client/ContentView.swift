@@ -18,8 +18,19 @@ struct DesignTokens {
     // Separators
     static let separator = Color(red: 56/255, green: 56/255, blue: 58/255)
     
-    // Accents
-    static let accent = Color(red: 0/255, green: 122/255, blue: 255/255) // System Blue
+    // Accents (Dynamic based on user selection)
+    static var accent: Color {
+        let colors: [Color] = [
+            Color(red: 100/255, green: 210/255, blue: 255/255), // Teal
+            Color(red: 255/255, green: 55/255, blue: 95/255),   // Pink
+            Color(red: 94/255, green: 92/255, blue: 230/255),   // Indigo
+            Color(red: 255/255, green: 159/255, blue: 10/255),  // Orange
+            Color(red: 48/255, green: 209/255, blue: 88/255)    // Green
+        ]
+        let index = UserDefaults.standard.integer(forKey: "selectedAccentIndex")
+        return colors[index]
+    }
+    
     static let green = Color(red: 48/255, green: 209/255, blue: 88/255)  // System Green
     static let orange = Color(red: 255/255, green: 159/255, blue: 10/255) // System Orange
     static let red = Color(red: 255/255, green: 69/255, blue: 58/255)     // System Red
@@ -32,6 +43,46 @@ struct DesignTokens {
     static let radiusMedium: CGFloat = 16
     static let radiusLarge: CGFloat = 24
     static let radiusXL: CGFloat = 28
+}
+
+// Procedural waveform simulating real-time audio levels
+struct WaveformView: View {
+    let isActive: Bool
+    @State private var phase: CGFloat = 0.0
+    
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { context, size in
+                let w = size.width
+                let h = size.height
+                let midY = h / 2
+                
+                context.stroke(
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: midY))
+                        for x in stride(from: 0, to: w, by: 2) {
+                            let relativeX = x / w
+                            let amplitude = isActive ? sin(relativeX * .pi) * 12.0 * sin(phase * 1.5) : sin(relativeX * .pi) * 2.0
+                            let y = midY + sin(relativeX * 10 + phase) * amplitude
+                            path.addLine(to: CGPoint(x: x, y: y))
+                        }
+                    },
+                    with: .linearGradient(
+                        Gradient(colors: [.clear, DesignTokens.accent.opacity(0.85), DesignTokens.accent.opacity(0.3), .clear]),
+                        startPoint: .zero,
+                        endPoint: CGPoint(x: w, y: 0)
+                    ),
+                    lineWidth: 2
+                )
+            }
+            .frame(height: 20)
+            .onAppear {
+                withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                    phase = .pi * 2
+                }
+            }
+        }
+    }
 }
 
 struct ContentView: View {
@@ -47,6 +98,16 @@ struct ContentView: View {
     @State private var isDimMode = false
     @State private var isUiHidden = false
     
+    @AppStorage("selectedAccentIndex") private var selectedAccentIndex = 0
+    
+    let accentColors: [Color] = [
+        Color(red: 100/255, green: 210/255, blue: 255/255), // Teal
+        Color(red: 255/255, green: 55/255, blue: 95/255),   // Pink
+        Color(red: 94/255, green: 92/255, blue: 230/255),   // Indigo
+        Color(red: 255/255, green: 159/255, blue: 10/255),  // Orange
+        Color(red: 48/255, green: 209/255, blue: 88/255)    // Green
+    ]
+    
     // Timer to update local telemetry (temp, battery)
     @State private var batteryPercent = 100
     @State private var deviceTemp = "28.5°C"
@@ -56,6 +117,16 @@ struct ContentView: View {
         let server = SocketServer()
         _socketServer = StateObject(wrappedValue: server)
         _streamer = StateObject(wrappedValue: CameraStreamer(socketServer: server))
+    }
+    
+    private func parseWidth(_ res: String) -> Int {
+        let parts = res.split(separator: "x")
+        return parts.count == 2 ? Int(parts[0]) ?? 1280 : 1280
+    }
+    
+    private func parseHeight(_ res: String) -> Int {
+        let parts = res.split(separator: "x")
+        return parts.count == 2 ? Int(parts[1]) ?? 720 : 720
     }
     
     var body: some View {
@@ -236,8 +307,28 @@ struct ContentView: View {
         return HStack(spacing: 10) {
             // App Name — clean SF Pro
             Text("Studio Cam")
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundColor(DesignTokens.label)
+            
+            // Dynamic Accent Selector Dots
+            HStack(spacing: 6) {
+                ForEach(0..<accentColors.count, id: \.self) { index in
+                    Circle()
+                        .fill(accentColors[index])
+                        .frame(width: 8, height: 8)
+                        .scaleEffect(selectedAccentIndex == index ? 1.4 : 1.0)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white, lineWidth: selectedAccentIndex == index ? 1 : 0)
+                        )
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                selectedAccentIndex = index
+                            }
+                        }
+                }
+            }
+            .padding(.leading, 6)
             
             Spacer()
             
@@ -262,7 +353,7 @@ struct ContentView: View {
             
             Spacer()
             
-            // IP : Port (all interfaces so USB/Wi-Fi/Hotspot IPs are visible)
+            // IP : Port
             let ips = getAllIPAddresses()
             Text(ips.isEmpty ? "No Network" : ips.map { "\($0):\(settings.port)" }.joined(separator: "  "))
                 .font(.system(size: 11, weight: .regular, design: .monospaced))
@@ -293,7 +384,12 @@ struct ContentView: View {
     // MARK: - Bottom Panel — iOS 26 Glass Sheet
     private var bottomPanel: some View {
         let isLandscape = verticalSizeClass == .compact
-        return VStack(spacing: isLandscape ? 8 : 14) {
+        return VStack(spacing: isLandscape ? 6 : 12) {
+            
+            // Dynamic Audio Waveform Overlay when streaming
+            WaveformView(isActive: socketServer.isStreaming)
+                .padding(.top, 4)
+            
             // Telemetry Metrics Row
             HStack(spacing: 6) {
                 MetricTile(label: "Rate", value: socketServer.txRateText, color: DesignTokens.accent)
@@ -302,10 +398,66 @@ struct ContentView: View {
                     MetricTile(label: "Temp", value: deviceTemp, color: DesignTokens.green)
                     MetricTile(label: "Battery", value: "\(batteryPercent)%", color: DesignTokens.green)
                 }
-                MetricTile(label: "Focus", value: streamer.focusModeText, color: DesignTokens.teal)
+                MetricTile(label: "Focus", value: streamer.focusModeText, color: DesignTokens.accent)
                 MetricTile(label: "Filter", value: streamer.filterModeText, color: DesignTokens.labelSecondary)
             }
-            .frame(height: isLandscape ? 42 : 52)
+            .frame(height: isLandscape ? 40 : 48)
+            
+            // Quick Resolution & FPS Selectors
+            HStack(spacing: 12) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(["640x480", "1280x720", "1920x1080", "2560x1440", "3840x2160"], id: \.self) { res in
+                            Button(action: {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    settings.resolution = res
+                                    if socketServer.isStreaming {
+                                        streamer.startStreaming(format: settings.format, width: parseWidth(res), height: parseHeight(res))
+                                    }
+                                }
+                            }) {
+                                Text(resolutionLabel(res))
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(settings.resolution == res ? .black : .white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(
+                                        Capsule()
+                                            .fill(settings.resolution == res ? DesignTokens.accent : Color.white.opacity(0.08))
+                                    )
+                            }
+                        }
+                    }
+                }
+                
+                Divider()
+                    .frame(height: 16)
+                    .background(Color.white.opacity(0.15))
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach([15, 24, 30, 60], id: \.self) { fps in
+                            Button(action: {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    settings.framerate = fps
+                                }
+                            }) {
+                                Text("\(fps) FPS")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(settings.framerate == fps ? .black : .white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(
+                                        Capsule()
+                                            .fill(settings.framerate == fps ? DesignTokens.accent : Color.white.opacity(0.08))
+                                    )
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
             
             // Action Buttons Row
             HStack(spacing: isLandscape ? 6 : 10) {
@@ -317,7 +469,7 @@ struct ContentView: View {
                     streamer.toggleTorch()
                 }
                 
-                CircleActionButton(icon: "paintpalette.fill", label: "Filter", isActive: false, activeColor: DesignTokens.pink) {
+                CircleActionButton(icon: "paintpalette.fill", label: "Filter", isActive: streamer.filterModeText != "NORMAL", activeColor: DesignTokens.accent) {
                     streamer.cycleFilter()
                 }
                 
@@ -329,7 +481,7 @@ struct ContentView: View {
                     showSettings = true
                 }
                 
-                CircleActionButton(icon: "grid", label: "Guide", isActive: guideMode > 0, activeColor: DesignTokens.teal) {
+                CircleActionButton(icon: "grid", label: "Guide", isActive: guideMode > 0, activeColor: DesignTokens.accent) {
                     guideMode = (guideMode + 1) % 4
                 }
                 
@@ -339,8 +491,8 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, isLandscape ? 10 : 16)
-        .padding(.bottom, isLandscape ? 10 : 28)
+        .padding(.top, isLandscape ? 8 : 12)
+        .padding(.bottom, isLandscape ? 8 : 28)
         .background(
             RoundedCorner(radius: DesignTokens.radiusXL, corners: [.topLeft, .topRight])
                 .fill(Material.regularMaterial)

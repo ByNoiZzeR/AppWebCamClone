@@ -535,31 +535,104 @@ class CameraStreamer: NSObject, ObservableObject {
     }
     
     func cycleFilter() {
-        currentFilterEffect = (currentFilterEffect + 1) % 5
-        let filterLabels = ["NORMAL", "MONO", "NEGATIVE", "SEPIA", "SOLAR"]
+        currentFilterEffect = (currentFilterEffect + 1) % 6
+        let filterLabels = ["NORMAL", "BEAUTY", "PORTRAIT", "COMIC", "NEON", "GLITCH"]
         filterModeText = filterLabels[currentFilterEffect]
     }
     
-    // Apply core image filter to the sample buffer pixel buffer (used in MJPEG mode)
+    // Apply core image filter to the sample buffer pixel buffer (used in MJPEG and H264/HEVC modes)
     private func applyImageFilter(_ pixelBuffer: CVPixelBuffer) -> CVPixelBuffer? {
         guard currentFilterEffect > 0 else { return pixelBuffer }
         
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
         var filteredImage: CIImage?
         
+        let width = CGFloat(CVPixelBufferGetWidth(pixelBuffer))
+        let height = CGFloat(CVPixelBufferGetHeight(pixelBuffer))
+        
         switch currentFilterEffect {
-        case 1: // Mono
-            filteredImage = ciImage.applyingFilter("CIPhotoEffectMono")
-        case 2: // Negative
-            filteredImage = ciImage.applyingFilter("CIColorInvert")
-        case 3: // Sepia
-            filteredImage = ciImage.applyingFilter("CISepiaTone", parameters: [kCIInputIntensityKey: 0.8])
-        case 4: // Solarize (simulated with color controls)
-            filteredImage = ciImage.applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: 2.0,
-                kCIInputBrightnessKey: 0.1,
-                kCIInputContrastKey: 3.0
+        case 1: // BEAUTY: Smooth Skin Bilateral Filter + Brightness/Warmth Glow
+            // Bilateral noise reduction to smooth skin
+            let bilateral = ciImage.applyingFilter("CIBilateralFilter", parameters: [
+                "inputDistanceConstraint": 2.0,
+                "inputLuminanceConstraint": 0.12
             ])
+            // Slight brightness and saturation boost for a healthy glow
+            filteredImage = bilateral.applyingFilter("CIColorControls", parameters: [
+                kCIInputBrightnessKey: 0.05,
+                kCIInputSaturationKey: 1.08,
+                kCIInputContrastKey: 1.02
+            ])
+            
+        case 2: // PORTRAIT: Simulated Depth-of-Field Bokeh
+            // Blur the edges of the frame to mimic shallow depth-of-field centering on the subject
+            let center = CIVector(x: width / 2.0, y: height / 2.0)
+            let radius = min(width, height) * 0.45
+            
+            let mask = CIFilter(name: "CIRadialGradient", parameters: [
+                "inputCenter": center,
+                "inputRadius0": radius * 0.6,
+                "inputRadius1": radius * 1.2,
+                "inputColor0": CIColor(red: 1, green: 1, blue: 1, alpha: 1), // sharp center
+                "inputColor1": CIColor(red: 0, green: 0, blue: 0, alpha: 0)  // blurred edges
+            ])?.outputImage?.cropped(to: ciImage.extent)
+            
+            let blurred = ciImage.applyingFilter("CIGaussianBlur", parameters: [
+                kCIInputRadiusKey: 18.0
+            ]).cropped(to: ciImage.extent)
+            
+            if let mask = mask {
+                filteredImage = CIFilter(name: "CIBlendWithMask", parameters: [
+                    kCIInputImageKey: ciImage,
+                    "inputBackgroundImage": blurred,
+                    "inputMaskImage": mask
+                ])?.outputImage
+            } else {
+                filteredImage = blurred
+            }
+            
+        case 3: // COMIC: Comic book cartoon effect
+            filteredImage = ciImage.applyingFilter("CIComicEffect")
+            
+        case 4: // NEON: Cyberpunk color grading + glow
+            let saturated = ciImage.applyingFilter("CIColorControls", parameters: [
+                kCIInputSaturationKey: 1.8,
+                kCIInputContrastKey: 1.15
+            ])
+            // Shift colors to teal and pink tones
+            let hueShifted = saturated.applyingFilter("CIHueAdjust", parameters: [
+                kCIInputAngleKey: 0.6
+            ])
+            filteredImage = hueShifted.applyingFilter("CIBloom", parameters: [
+                kCIInputRadiusKey: 8.0,
+                kCIInputIntensityKey: 0.65
+            ]).cropped(to: ciImage.extent)
+            
+        case 5: // GLITCH: Vaporwave RGB Channel Split
+            let offset = width * 0.012
+            
+            let redMatrix = CGAffineTransform(translationX: offset, y: 0)
+            let redImage = ciImage.transformed(by: redMatrix)
+                .applyingFilter("CIColorMatrix", parameters: [
+                    "inputRVector": CIVector(x: 1, y: 0, z: 0, w: 0),
+                    "inputGVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+                    "inputBVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+                    "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1)
+                ])
+            
+            let cyanMatrix = CGAffineTransform(translationX: -offset, y: 0)
+            let cyanImage = ciImage.transformed(by: cyanMatrix)
+                .applyingFilter("CIColorMatrix", parameters: [
+                    "inputRVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+                    "inputGVector": CIVector(x: 0, y: 1, z: 0, w: 0),
+                    "inputBVector": CIVector(x: 0, y: 0, z: 1, w: 0),
+                    "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1)
+                ])
+            
+            filteredImage = redImage.applyingFilter("CIAdditionCompositing", parameters: [
+                "inputBackgroundImage": cyanImage
+            ]).cropped(to: ciImage.extent)
+            
         default:
             filteredImage = ciImage
         }
