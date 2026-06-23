@@ -540,6 +540,14 @@ class CameraStreamer: NSObject, ObservableObject {
         filterModeText = filterLabels[currentFilterEffect]
     }
     
+    func setFilterMode(_ filter: String) {
+        let filterLabels = ["NORMAL", "BEAUTY", "PORTRAIT", "COMIC", "NEON", "GLITCH"]
+        if let idx = filterLabels.firstIndex(of: filter) {
+            currentFilterEffect = idx
+            filterModeText = filter
+        }
+    }
+    
     // Apply core image filter to the sample buffer pixel buffer (used in MJPEG and H264/HEVC modes)
     private func applyImageFilter(_ pixelBuffer: CVPixelBuffer) -> CVPixelBuffer? {
         guard currentFilterEffect > 0 else { return pixelBuffer }

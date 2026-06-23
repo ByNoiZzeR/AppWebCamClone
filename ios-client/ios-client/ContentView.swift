@@ -18,17 +18,20 @@ struct DesignTokens {
     // Separators
     static let separator = Color(red: 56/255, green: 56/255, blue: 58/255)
     
+    // Accent colors list (Redesigned Theme selection)
+    static let accentColors: [Color] = [
+        Color(red: 100/255, green: 210/255, blue: 255/255), // Teal
+        Color(red: 255/255, green: 55/255, blue: 95/255),   // Pink
+        Color(red: 94/255, green: 92/255, blue: 230/255),   // Indigo
+        Color(red: 255/255, green: 159/255, blue: 10/255),  // Orange
+        Color(red: 48/255, green: 209/255, blue: 88/255)    // Green
+    ]
+    
     // Accents (Dynamic based on user selection)
     static var accent: Color {
-        let colors: [Color] = [
-            Color(red: 100/255, green: 210/255, blue: 255/255), // Teal
-            Color(red: 255/255, green: 55/255, blue: 95/255),   // Pink
-            Color(red: 94/255, green: 92/255, blue: 230/255),   // Indigo
-            Color(red: 255/255, green: 159/255, blue: 10/255),  // Orange
-            Color(red: 48/255, green: 209/255, blue: 88/255)    // Green
-        ]
         let index = UserDefaults.standard.integer(forKey: "selectedAccentIndex")
-        return colors[index]
+        guard index >= 0 && index < accentColors.count else { return accentColors[0] }
+        return accentColors[index]
     }
     
     static let green = Color(red: 48/255, green: 209/255, blue: 88/255)  // System Green
@@ -97,16 +100,9 @@ struct ContentView: View {
     @State private var isPreviewMuted = false
     @State private var isDimMode = false
     @State private var isUiHidden = false
+    @State private var shutterPulse = false
     
     @AppStorage("selectedAccentIndex") private var selectedAccentIndex = 0
-    
-    let accentColors: [Color] = [
-        Color(red: 100/255, green: 210/255, blue: 255/255), // Teal
-        Color(red: 255/255, green: 55/255, blue: 95/255),   // Pink
-        Color(red: 94/255, green: 92/255, blue: 230/255),   // Indigo
-        Color(red: 255/255, green: 159/255, blue: 10/255),  // Orange
-        Color(red: 48/255, green: 209/255, blue: 88/255)    // Green
-    ]
     
     // Timer to update local telemetry (temp, battery)
     @State private var batteryPercent = 100
@@ -127,6 +123,12 @@ struct ContentView: View {
     private func parseHeight(_ res: String) -> Int {
         let parts = res.split(separator: "x")
         return parts.count == 2 ? Int(parts[1]) ?? 720 : 720
+    }
+    
+    private func triggerHapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.prepare()
+        generator.impactOccurred()
     }
     
     var body: some View {
@@ -167,24 +169,30 @@ struct ContentView: View {
                     .ignoresSafeArea()
             }
             
-            // 3. Main HUD UI
-            VStack(spacing: 0) {
-                if !isUiHidden {
+            // 3. Immersive camera controls overlay
+            if !isUiHidden {
+                VStack(spacing: 0) {
                     // Top HUD
-                    topHudView
+                    topHudHeaderView
                         .transition(.move(edge: .top).combined(with: .opacity))
-                }
-                
-                Spacer()
-                    .allowsHitTesting(false)
-                
-                if !isUiHidden {
-                    // Bottom control panel
-                    bottomPanel
+                    
+                    // Upper Right Indicators (HD • 60)
+                    HStack {
+                        Spacer()
+                        ResolutionFPSIndicator(settings: settings, streamer: streamer, socketServer: socketServer)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .transition(.opacity)
+                    
+                    Spacer()
+                        .allowsHitTesting(false)
+                    
+                    // Bottom Controls Glass Panel
+                    bottomControlsView
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .ignoresSafeArea(.all, edges: .top)
             
             // 4. OLED Saver Dim Mode Overlay
             if isDimMode {
@@ -198,6 +206,10 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                shutterPulse = true
+            }
+            
             streamer.startPreview()
             socketServer.start(port: settings.port)
             
@@ -286,7 +298,7 @@ struct ContentView: View {
             updateLocalTelemetry()
         }
         .sheet(isPresented: $showSettings) {
-            SettingsSheetView(showSettings: $showSettings, socketServer: socketServer)
+            SettingsSheetView(showSettings: $showSettings, isDimMode: $isDimMode, socketServer: socketServer)
         }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
@@ -301,241 +313,220 @@ struct ContentView: View {
         }
     }
     
-    // MARK: - Top HUD — iOS 26 Dynamic Island Style
-    private var topHudView: some View {
-        let isLandscape = verticalSizeClass == .compact
-        return HStack(spacing: 10) {
-            // App Name — clean SF Pro
-            Text("Studio Cam")
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundColor(DesignTokens.label)
-            
-            // Dynamic Accent Selector Dots
-            HStack(spacing: 6) {
-                ForEach(0..<accentColors.count, id: \.self) { index in
-                    Circle()
-                        .fill(accentColors[index])
-                        .frame(width: 8, height: 8)
-                        .scaleEffect(selectedAccentIndex == index ? 1.4 : 1.0)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.white, lineWidth: selectedAccentIndex == index ? 1 : 0)
-                        )
-                        .onTapGesture {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                selectedAccentIndex = index
-                            }
-                        }
-                }
-            }
-            .padding(.leading, 6)
-            
-            Spacer()
-            
-            // Status Pill — Dynamic Island inspired
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(socketServer.isStreaming ? DesignTokens.green : DesignTokens.labelSecondary)
-                    .frame(width: 7, height: 7)
-                
-                Text(socketServer.isStreaming ? "Live" : "Standby")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundColor(socketServer.isStreaming ? DesignTokens.green : DesignTokens.labelSecondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(socketServer.isStreaming
-                          ? DesignTokens.green.opacity(0.15)
-                          : Color.white.opacity(0.08))
-            )
-            
-            Spacer()
-            
-            // IP : Port
-            let ips = getAllIPAddresses()
-            Text(ips.isEmpty ? "No Network" : ips.map { "\($0):\(settings.port)" }.joined(separator: "  "))
-                .font(.system(size: 11, weight: .regular, design: .monospaced))
-                .foregroundColor(DesignTokens.labelTertiary)
-            
-            // Dim Mode Button
-            Button(action: {
-                isDimMode = true
-            }) {
-                Image(systemName: "moon.fill")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(DesignTokens.labelSecondary)
-                    .frame(width: 30, height: 30)
-                    .background(
-                        Circle()
-                            .fill(Color.white.opacity(0.08))
-                    )
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, isLandscape ? 8 : 52)
-        .padding(.bottom, 10)
-        .background(
-            Material.ultraThinMaterial
-        )
-    }
-    
-    // MARK: - Bottom Panel — iOS 26 Glass Sheet
-    private var bottomPanel: some View {
-        let isLandscape = verticalSizeClass == .compact
-        return VStack(spacing: isLandscape ? 6 : 12) {
-            // Dynamic Audio Waveform Overlay when streaming
-            WaveformView(isActive: socketServer.isStreaming)
-                .padding(.top, 4)
-            
-            telemetryMetricsRow
-            quickSelectorsRow
-            actionButtonsRow
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, isLandscape ? 8 : 12)
-        .padding(.bottom, isLandscape ? 8 : 28)
-        .background(
-            RoundedCorner(radius: DesignTokens.radiusXL, corners: [.topLeft, .topRight])
-                .fill(Material.regularMaterial)
-        )
-        .padding(.horizontal, 8)
-    }
-    
-    // MARK: - Telemetry Metrics Row
-    private var telemetryMetricsRow: some View {
-        let isLandscape = verticalSizeClass == .compact
-        return HStack(spacing: 6) {
-            MetricTile(label: "Rate", value: socketServer.txRateText, color: DesignTokens.accent)
-            MetricTile(label: "Total", value: socketServer.totalTxText, color: DesignTokens.accent)
-            if !isLandscape {
-                MetricTile(label: "Temp", value: deviceTemp, color: DesignTokens.green)
-                MetricTile(label: "Battery", value: "\(batteryPercent)%", color: DesignTokens.green)
-            }
-            MetricTile(label: "Focus", value: streamer.focusModeText, color: DesignTokens.accent)
-            MetricTile(label: "Filter", value: streamer.filterModeText, color: DesignTokens.labelSecondary)
-        }
-        .frame(height: isLandscape ? 40 : 48)
-    }
-    
-    // MARK: - Quick Selectors Row
-    private var quickSelectorsRow: some View {
+    // MARK: - Top HUD Header
+    private var topHudHeaderView: some View {
         HStack(spacing: 12) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(["640x480", "1280x720", "1920x1080", "2560x1440", "3840x2160"], id: \.self) { res in
-                        Button(action: {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                settings.resolution = res
-                                if socketServer.isStreaming {
-                                    streamer.startStreaming(format: settings.format, width: parseWidth(res), height: parseHeight(res))
-                                }
-                            }
-                        }) {
-                            Text(resolutionLabel(res))
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(settings.resolution == res ? .black : .white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(
-                                    Capsule()
-                                        .fill(settings.resolution == res ? DesignTokens.accent : Color.white.opacity(0.08))
-                                )
-                        }
-                    }
-                }
-            }
-            
-            Divider()
-                .frame(height: 16)
-                .background(Color.white.opacity(0.15))
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach([15, 24, 30, 60], id: \.self) { fps in
-                        Button(action: {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                settings.framerate = fps
-                            }
-                        }) {
-                            Text("\(fps) FPS")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(settings.framerate == fps ? .black : .white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(
-                                    Capsule()
-                                        .fill(settings.framerate == fps ? DesignTokens.accent : Color.white.opacity(0.08))
-                                )
-                        }
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 2)
-    }
-    
-    // MARK: - Action Buttons Row
-    private var actionButtonsRow: some View {
-        let isLandscape = verticalSizeClass == .compact
-        return HStack(spacing: isLandscape ? 6 : 10) {
-            CircleActionButton(icon: socketServer.isServerRunning ? "wifi" : "wifi.slash", label: socketServer.isServerRunning ? "Stop" : "Start", isActive: socketServer.isServerRunning, activeColor: DesignTokens.green) {
+            // Status Pill (Starts/Stops server listener when tapped)
+            Button(action: {
+                triggerHapticFeedback(.medium)
                 if socketServer.isServerRunning {
                     socketServer.stop()
                 } else {
                     socketServer.start(port: settings.port)
                 }
+            }) {
+                HStack(spacing: 6) {
+                    let isLive = socketServer.isStreaming
+                    let isReady = socketServer.isServerRunning
+                    
+                    Circle()
+                        .fill(isLive ? DesignTokens.red : (isReady ? DesignTokens.accent : DesignTokens.labelSecondary))
+                        .frame(width: 7, height: 7)
+                    
+                    Text(isLive ? "LIVE" : (isReady ? "READY" : "OFFLINE"))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(isLive ? DesignTokens.red : (isReady ? DesignTokens.accent : DesignTokens.labelSecondary))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(0.45))
+                )
             }
             
-            CircleActionButton(icon: "arrow.triangle.2.circlepath", label: "Flip", isActive: false, activeColor: DesignTokens.accent) {
-                streamer.switchCamera()
+            // IP & Port Pill
+            let ips = getAllIPAddresses()
+            if !ips.isEmpty {
+                Text(ips[0] + ":\(settings.port)")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.8))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(Color.black.opacity(0.45))
+                    )
+            } else {
+                Text("NO NETWORK")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundColor(DesignTokens.red)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(Color.black.opacity(0.45))
+                    )
             }
             
-            CircleActionButton(icon: "bolt.fill", label: "Light", isActive: streamer.torchEnabled, activeColor: DesignTokens.orange) {
-                streamer.toggleTorch()
-            }
+            Spacer()
             
-            CircleActionButton(icon: "paintpalette.fill", label: "Filter", isActive: streamer.filterModeText != "NORMAL", activeColor: DesignTokens.accent) {
-                streamer.cycleFilter()
-            }
-            
-            CircleActionButton(icon: "scope", label: "Focus", isActive: false, activeColor: DesignTokens.green) {
-                streamer.triggerAutofocus()
-            }
-            
-            CircleActionButton(icon: "gearshape.fill", label: "Settings", isActive: false, activeColor: DesignTokens.labelSecondary) {
-                showSettings = true
-            }
-            
-            CircleActionButton(icon: "grid", label: "Guide", isActive: guideMode > 0, activeColor: DesignTokens.accent) {
+            // Guides Toggle Button
+            Button(action: {
+                triggerHapticFeedback(.light)
                 guideMode = (guideMode + 1) % 4
+            }) {
+                Image(systemName: guideMode > 0 ? "grid.circle.fill" : "grid")
+                    .font(.system(size: 16))
+                    .foregroundColor(guideMode > 0 ? DesignTokens.accent : .white)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color.black.opacity(0.45)))
             }
             
-            CircleActionButton(icon: isPreviewMuted ? "eye.slash.fill" : "eye.fill", label: "Preview", isActive: isPreviewMuted, activeColor: DesignTokens.orange) {
-                isPreviewMuted.toggle()
+            // Settings Button
+            Button(action: {
+                triggerHapticFeedback(.light)
+                showSettings = true
+            }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color.black.opacity(0.45)))
             }
         }
+        .padding(.horizontal, 16)
+        .padding(.top, verticalSizeClass == .compact ? 8 : 52)
+        .padding(.bottom, 8)
     }
     
-    private func resolutionLabel(_ res: String) -> String {
-        switch res {
-        case "3840x2160": return "4K"
-        case "2560x1440": return "2K"
-        case "1920x1080": return "1080p"
-        case "1280x720": return "720p"
-        case "640x480": return "480p"
-        default: return res
+    // MARK: - Bottom Controls Glass Panel
+    private var bottomControlsView: some View {
+        VStack(spacing: 12) {
+            // Neon Audio Waveform View
+            WaveformView(isActive: socketServer.isStreaming)
+                .padding(.horizontal, 16)
+            
+            // Telemetry single-line readout
+            microTelemetryRow
+            
+            // Horizontal sliding modes (Filter dial)
+            FilterDialView(streamer: streamer)
+            
+            // Shutter row controls
+            shutterControlsRow
         }
+        .padding(.top, 12)
+        .background(
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.65), .black.opacity(0.9)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
     }
     
-    // MARK: - Helpers
+    // MARK: - Micro-Telemetry Line
+    private var microTelemetryRow: some View {
+        HStack(spacing: 8) {
+            Text(socketServer.isStreaming ? socketServer.txRateText : "0 Kb/s")
+            Text("•")
+            Text(socketServer.isStreaming ? socketServer.totalTxText : "0.0 MB")
+            Text("•")
+            Text(deviceTemp)
+            Text("•")
+            Text("\(batteryPercent)%")
+        }
+        .font(.system(size: 10, weight: .bold, design: .monospaced))
+        .foregroundColor(.white.opacity(0.65))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(Color.black.opacity(0.3))
+        )
+    }
+    
+    // MARK: - Shutter Controls Row
+    private var shutterControlsRow: some View {
+        HStack {
+            // Light / Torch Toggle (Left)
+            Button(action: {
+                triggerHapticFeedback(.light)
+                streamer.toggleTorch()
+            }) {
+                Image(systemName: streamer.torchEnabled ? "bolt.fill" : "bolt.slash.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(streamer.torchEnabled ? DesignTokens.orange : .white)
+                    .frame(width: 50, height: 50)
+                    .background(
+                        Circle()
+                            .fill(streamer.torchEnabled ? DesignTokens.orange.opacity(0.18) : Color.black.opacity(0.45))
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(streamer.torchEnabled ? DesignTokens.orange : Color.white.opacity(0.2), lineWidth: 1.5)
+                    )
+            }
+            .frame(maxWidth: .infinity)
+            
+            // Connection Shutter (Center)
+            Button(action: {
+                triggerHapticFeedback(.medium)
+                if socketServer.isServerRunning {
+                    socketServer.stop()
+                } else {
+                    socketServer.start(port: settings.port)
+                }
+            }) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.white, lineWidth: 4)
+                        .frame(width: 76, height: 76)
+                    
+                    let isLive = socketServer.isStreaming
+                    let isReady = socketServer.isServerRunning && !isLive
+                    
+                    RoundedRectangle(cornerRadius: isLive ? 8 : 31)
+                        .fill(isLive ? DesignTokens.red : (isReady ? DesignTokens.accent : Color.white))
+                        .frame(width: isLive ? 32 : 62, height: isLive ? 32 : 62)
+                        .scaleEffect(isLive && shutterPulse ? 0.92 : 1.0)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isLive)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isReady)
+                }
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .frame(maxWidth: .infinity)
+            
+            // Flip Camera Toggle (Right)
+            Button(action: {
+                triggerHapticFeedback(.light)
+                streamer.switchCamera()
+            }) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white)
+                    .frame(width: 50, height: 50)
+                    .background(
+                        Circle()
+                            .fill(Color.black.opacity(0.45))
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1.5)
+                    )
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 24)
+        .padding(.bottom, verticalSizeClass == .compact ? 8 : 24)
+    }
+    
+    // MARK: - Telemetry Update helpers
     private func updateLocalTelemetry() {
         UIDevice.current.isBatteryMonitoringEnabled = true
         batteryPercent = Int(max(0, UIDevice.current.batteryLevel) * 100)
         
-        // Map iOS thermal state to temperature approximations for aesthetic telemetry
         switch ProcessInfo.processInfo.thermalState {
         case .nominal:
             deviceTemp = "29.4°C"
@@ -642,62 +633,137 @@ struct CameraPreview: UIViewRepresentable {
     }
 }
 
-// MARK: - Metric Tile (iOS 26 Style)
-struct MetricTile: View {
-    let label: String
-    let value: String
-    let color: Color
+// MARK: - Upper Right Resolution/FPS overlay indicator
+struct ResolutionFPSIndicator: View {
+    @ObservedObject var settings: SettingsManager
+    let streamer: CameraStreamer
+    let socketServer: SocketServer
     
     var body: some View {
-        VStack(spacing: 3) {
-            Text(value)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundColor(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+        HStack(spacing: 4) {
+            Button(action: {
+                triggerHapticFeedback(.light)
+                cycleResolution()
+            }) {
+                Text(resolutionLabel(settings.resolution))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+            }
             
-            Text(label)
-                .font(.system(size: 8, weight: .medium))
-                .foregroundColor(DesignTokens.labelTertiary)
-                .textCase(.uppercase)
+            Text("•")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(.white.opacity(0.4))
+            
+            Button(action: {
+                triggerHapticFeedback(.light)
+                cycleFramerate()
+            }) {
+                Text("\(settings.framerate)")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .foregroundColor(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: DesignTokens.radiusSmall)
-                .fill(Color.white.opacity(0.06))
+            Capsule()
+                .fill(Color.black.opacity(0.45))
         )
+    }
+    
+    private func resolutionLabel(_ res: String) -> String {
+        switch res {
+        case "3840x2160": return "4K"
+        case "2560x1440": return "2K"
+        case "1920x1080": return "HD"
+        case "1280x720": return "720"
+        case "640x480": return "480"
+        default: return res
+        }
+    }
+    
+    private func cycleResolution() {
+        let resolutions = ["640x480", "1280x720", "1920x1080", "2560x1440", "3840x2160"]
+        if let currentIndex = resolutions.firstIndex(of: settings.resolution) {
+            let nextIndex = (currentIndex + 1) % resolutions.count
+            let nextRes = resolutions[nextIndex]
+            settings.resolution = nextRes
+            if socketServer.isStreaming {
+                let parts = nextRes.split(separator: "x")
+                let w = parts.count == 2 ? Int(parts[0]) ?? 1280 : 1280
+                let h = parts.count == 2 ? Int(parts[1]) ?? 720 : 720
+                streamer.startStreaming(format: settings.format, width: w, height: h)
+            }
+        }
+    }
+    
+    private func cycleFramerate() {
+        let framerates = [15, 24, 30, 60]
+        if let currentIndex = framerates.firstIndex(of: settings.framerate) {
+            let nextIndex = (currentIndex + 1) % framerates.count
+            settings.framerate = framerates[nextIndex]
+        }
+    }
+    
+    private func triggerHapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.prepare()
+        generator.impactOccurred()
     }
 }
 
-// MARK: - Circle Action Button (iOS 26 Style)
-struct CircleActionButton: View {
-    let icon: String
-    let label: String
-    var isActive: Bool = false
-    var activeColor: Color = DesignTokens.accent
-    let action: () -> Void
+// MARK: - Sliding Camera Filter Mode Dial Picker
+struct FilterDialView: View {
+    @ObservedObject var streamer: CameraStreamer
+    let filters = ["NORMAL", "BEAUTY", "PORTRAIT", "COMIC", "NEON", "GLITCH"]
     
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 5) {
-                ZStack {
-                    Circle()
-                        .fill(isActive ? activeColor : Color.white.opacity(0.1))
-                        .frame(width: 44, height: 44)
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(isActive ? .black : .white)
+        GeometryReader { geo in
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 24) {
+                        Spacer().frame(width: geo.size.width / 2 - 40)
+                        
+                        ForEach(filters, id: \.self) { filter in
+                            Button(action: {
+                                triggerHapticFeedback(.light)
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    streamer.setFilterMode(filter)
+                                }
+                            }) {
+                                VStack(spacing: 4) {
+                                    Text(filter)
+                                        .font(.system(size: 13, weight: streamer.filterModeText == filter ? .bold : .semibold, design: .rounded))
+                                        .foregroundColor(streamer.filterModeText == filter ? Color(red: 255/255, green: 204/255, blue: 0/255) : .white.opacity(0.55))
+                                        .scaleEffect(streamer.filterModeText == filter ? 1.12 : 1.0)
+                                    
+                                    Circle()
+                                        .fill(streamer.filterModeText == filter ? Color(red: 255/255, green: 204/255, blue: 0/255) : .clear)
+                                        .frame(width: 4, height: 4)
+                                }
+                            }
+                            .id(filter)
+                        }
+                        
+                        Spacer().frame(width: geo.size.width / 2 - 40)
+                    }
                 }
-                
-                Text(label)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundColor(isActive ? activeColor : DesignTokens.labelSecondary)
+                .onChange(of: streamer.filterModeText) { newFilter in
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        proxy.scrollTo(newFilter, anchor: .center)
+                    }
+                }
+                .onAppear {
+                    proxy.scrollTo(streamer.filterModeText, anchor: .center)
+                }
             }
-            .frame(maxWidth: .infinity)
         }
-        .buttonStyle(ScaleButtonStyle())
+        .frame(height: 40)
+    }
+    
+    private func triggerHapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.prepare()
+        generator.impactOccurred()
     }
 }
 
@@ -817,9 +883,11 @@ struct DimModeOverlay: View {
 // MARK: - Settings Sheet — iOS 26 Grouped List Style
 struct SettingsSheetView: View {
     @Binding var showSettings: Bool
+    @Binding var isDimMode: Bool
     @ObservedObject var socketServer: SocketServer
     
     @StateObject private var settings = SettingsManager.shared
+    @AppStorage("selectedAccentIndex") private var selectedAccentIndex = 0
     
     @State private var localPort: String = ""
     @State private var selectedResolution = "1280x720"
@@ -850,6 +918,30 @@ struct SettingsSheetView: View {
                         .fill(Color.white.opacity(0.2))
                         .frame(width: 36, height: 5)
                         .padding(.top, 8)
+                    
+                    // Accent Color Picker Section (Moved to Settings for clean HUD)
+                    SettingsSection(title: "Theme Accent") {
+                        HStack(spacing: 16) {
+                            ForEach(0..<DesignTokens.accentColors.count, id: \.self) { index in
+                                Circle()
+                                    .fill(DesignTokens.accentColors[index])
+                                    .frame(width: 32, height: 32)
+                                    .scaleEffect(selectedAccentIndex == index ? 1.2 : 1.0)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white, lineWidth: selectedAccentIndex == index ? 2 : 0)
+                                    )
+                                    .onTapGesture {
+                                        triggerHapticFeedback(.light)
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                            selectedAccentIndex = index
+                                        }
+                                    }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                    }
                     
                     // Network Section
                     SettingsSection(title: "Network") {
@@ -975,6 +1067,28 @@ struct SettingsSheetView: View {
                         }
                     }
                     
+                    // Display / OLED Dim Section (Moved to settings)
+                    SettingsSection(title: "Display") {
+                        Button(action: {
+                            triggerHapticFeedback(.light)
+                            showSettings = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                isDimMode = true
+                            }
+                        }) {
+                            HStack {
+                                Label("Dim Screen (OLED Saver)", systemImage: "moon.fill")
+                                    .font(.system(size: 15, weight: .regular))
+                                    .foregroundColor(DesignTokens.label)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(DesignTokens.labelSecondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                        }
+                    }
+                    
                     // Preferences Section
                     SettingsSection(title: "Preferences") {
                         VStack(spacing: 0) {
@@ -1035,7 +1149,6 @@ struct SettingsSheetView: View {
     private func saveSettings() {
         if let p = Int(localPort) {
             settings.port = p
-            // Restart server on new port
             socketServer.start(port: p)
         }
         
@@ -1044,8 +1157,13 @@ struct SettingsSheetView: View {
         settings.framerate = selectedFramerate
         settings.bitrate = selectedBitrate
         
-        // Apply keep screen on state
         UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
+    }
+    
+    private func triggerHapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.prepare()
+        generator.impactOccurred()
     }
 }
 
