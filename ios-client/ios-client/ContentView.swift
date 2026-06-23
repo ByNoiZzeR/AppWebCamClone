@@ -7,6 +7,7 @@ struct ContentView: View {
     @StateObject private var settings = SettingsManager.shared
     @StateObject private var socketServer = SocketServer()
     @StateObject private var streamer: CameraStreamer
+    @Environment(\.verticalSizeClass) var verticalSizeClass
     
     @State private var showSettings = false
     @State private var guideMode = 0 // 0: None, 1: 3x3 Grid, 2: Crosshair, 3: TikTok 9:16
@@ -94,6 +95,74 @@ struct ContentView: View {
                 streamer.stopStreaming()
             }
             
+            socketServer.onUpdateSetting = { key, val in
+                DispatchQueue.main.async {
+                    if key == "camera" {
+                        let requestedPosition: AVCaptureDevice.Position = (val == "front" || val == "1") ? .front : .back
+                        if streamer.activeCameraPosition != requestedPosition {
+                            streamer.switchCamera()
+                        }
+                    } else if key == "resolution" {
+                        settings.resolution = val
+                    } else if key == "format" {
+                        settings.format = val
+                    } else if key == "framerate" {
+                        if let fps = Int(val) {
+                            settings.framerate = fps
+                        }
+                    } else if key == "bitrate" {
+                        if let br = Int(val) {
+                            settings.bitrate = br
+                        }
+                    } else if key == "face_auto_focus" {
+                        settings.faceAutoFocus = (val == "true")
+                    } else if key == "keep_screen_on" {
+                        settings.keepScreenOn = (val == "true")
+                        UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
+                    } else if key == "flip_horizontal" {
+                        settings.flipHorizontal = (val == "true")
+                    } else if key == "flip_vertical" {
+                        settings.flipVertical = (val == "true")
+                    } else if key == "trigger_af" {
+                        streamer.triggerAutofocus()
+                    } else if key == "toggle_af_mode" {
+                        streamer.triggerAutofocus()
+                    }
+                }
+            }
+            
+            socketServer.getStatusJSON = {
+                let battery = batteryPercent
+                let isStreaming = socketServer.isStreaming
+                let faceAf = settings.faceAutoFocus
+                let keepOn = settings.keepScreenOn
+                let flipH = settings.flipHorizontal
+                let flipV = settings.flipVertical
+                let activeCamera = streamer.activeCameraPosition == .back ? "back" : "front"
+                let isAutofocusLocked = streamer.focusModeText == "AUTO-L"
+                let resolution = settings.resolution
+                let bitrate = settings.bitrate
+                let framerate = settings.framerate
+                
+                return """
+                {
+                    "battery": \(battery),
+                    "isStreaming": \(isStreaming),
+                    "faceAutoFocus": \(faceAf),
+                    "keepScreenOn": \(keepOn),
+                    "flipHorizontal": \(flipH),
+                    "flipVertical": \(flipV),
+                    "activeCameraId": "\(activeCamera)",
+                    "isAutofocusLocked": \(isAutofocusLocked),
+                    "resolution": "\(resolution)",
+                    "bitrate": \(bitrate),
+                    "framerate": \(framerate),
+                    "availableCameras": [{"id":"back","facing":"Back"},{"id":"front","facing":"Front"}],
+                    "availableResolutions": ["640x480","1280x720","1920x1080","2560x1440","3840x2160"]
+                }
+                """
+            }
+            
             updateLocalTelemetry()
         }
         .onReceive(telemetryTimer) { _ in
@@ -106,7 +175,8 @@ struct ContentView: View {
     
     // MARK: - Top HUD
     private var topHudView: some View {
-        HStack(spacing: 12) {
+        let isLandscape = verticalSizeClass == .compact
+        return HStack(spacing: 12) {
             // Logo
             HStack(spacing: 2) {
                 Text("STUDIO")
@@ -162,8 +232,8 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 48) // Safe area padding
-        .padding(.bottom, 12)
+        .padding(.top, isLandscape ? 8 : 48) // Safe area padding
+        .padding(.bottom, isLandscape ? 8 : 12)
         .background(
             Color(red: 8/255, green: 11/255, blue: 20/255).opacity(0.92)
                 .overlay(
@@ -174,17 +244,20 @@ struct ContentView: View {
     
     // MARK: - Bottom Panel
     private var bottomPanel: some View {
-        VStack(spacing: 12) {
+        let isLandscape = verticalSizeClass == .compact
+        return VStack(spacing: isLandscape ? 6 : 12) {
             // Telemetry Grid
             HStack(spacing: 6) {
                 TelemetryCard(label: "RATE", value: socketServer.txRateText, color: Color(red: 129/255, green: 140/255, blue: 248/255))
                 TelemetryCard(label: "TOTAL", value: socketServer.totalTxText, color: Color(red: 129/255, green: 140/255, blue: 248/255))
-                TelemetryCard(label: "TEMP", value: deviceTemp, color: .green)
-                TelemetryCard(label: "BATTERY", value: "\(batteryPercent)%", color: .green)
+                if !isLandscape {
+                    TelemetryCard(label: "TEMP", value: deviceTemp, color: .green)
+                    TelemetryCard(label: "BATTERY", value: "\(batteryPercent)%", color: .green)
+                }
                 TelemetryCard(label: "FOCUS", value: streamer.focusModeText, color: .green)
                 TelemetryCard(label: "FILTER", value: streamer.filterModeText, color: Color(red: 148/255, green: 163/255, blue: 184/255))
             }
-            .frame(height: 48)
+            .frame(height: isLandscape ? 36 : 48)
             
             Divider()
                 .background(Color(red: 30/255, green: 41/255, blue: 64/255))
@@ -221,8 +294,8 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.top, 14)
-        .padding(.bottom, 24)
+        .padding(.top, isLandscape ? 8 : 14)
+        .padding(.bottom, isLandscape ? 8 : 24)
         .background(
             Color(red: 8/255, green: 11/255, blue: 20/255).opacity(0.94)
                 .cornerRadius(18, corners: [.topLeft, .topRight])
@@ -232,7 +305,7 @@ struct ContentView: View {
                 )
         )
         .padding(.horizontal, 12)
-        .padding(.bottom, 12)
+        .padding(.bottom, isLandscape ? 4 : 12)
     }
     
     // MARK: - Helpers
@@ -295,7 +368,26 @@ struct CameraPreview: UIViewRepresentable {
     
     func updateUIView(_ uiView: UIView, context: Context) {
         DispatchQueue.main.async {
-            context.coordinator.previewLayer?.frame = uiView.bounds
+            guard let previewLayer = context.coordinator.previewLayer else { return }
+            previewLayer.frame = uiView.bounds
+            
+            if let connection = previewLayer.connection, connection.isVideoOrientationSupported {
+                if let windowScene = uiView.window?.windowScene {
+                    let orientation = windowScene.interfaceOrientation
+                    switch orientation {
+                    case .portrait:
+                        connection.videoOrientation = .portrait
+                    case .portraitUpsideDown:
+                        connection.videoOrientation = .portraitUpsideDown
+                    case .landscapeLeft:
+                        connection.videoOrientation = .landscapeLeft
+                    case .landscapeRight:
+                        connection.videoOrientation = .landscapeRight
+                    default:
+                        break
+                    }
+                }
+            }
         }
     }
     

@@ -91,6 +91,13 @@ class CameraStreamer: NSObject, ObservableObject {
             if captureSession.canAddOutput(videoDataOutput) {
                 captureSession.addOutput(videoDataOutput)
                 videoDataOutput.setSampleBufferDelegate(self, queue: videoQueue)
+                
+                // Set default orientation to landscapeRight once
+                if let connection = videoDataOutput.connection(with: .video) {
+                    if connection.isVideoOrientationSupported {
+                        connection.videoOrientation = .landscapeRight
+                    }
+                }
             }
             
             // Configure default frame duration (30 FPS)
@@ -153,6 +160,13 @@ class CameraStreamer: NSObject, ObservableObject {
                 }
             }
             self.captureSession.commitConfiguration()
+            
+            // Ensure orientation is landscapeRight
+            if let connection = self.videoDataOutput.connection(with: .video) {
+                if connection.isVideoOrientationSupported {
+                    connection.videoOrientation = .landscapeRight
+                }
+            }
             
             if format == "avc" || format == "hevc" {
                 self.setupCompressionSession(format: format, width: width, height: height)
@@ -472,11 +486,6 @@ class CameraStreamer: NSObject, ObservableObject {
 extension CameraStreamer: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard isStreaming else { return }
-        
-        // Ensure orientation is correct (OBS expects landscape landscape/default)
-        if connection.isVideoOrientationSupported {
-            connection.videoOrientation = .landscapeRight
-        }
         
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
