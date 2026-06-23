@@ -2085,36 +2085,24 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
                     Log.e(TAG, "Error getting sensor orientation", e);
                 }
 
-                int deviceRotationDegrees = 0;
-                switch (rotation) {
-                    case Surface.ROTATION_0: deviceRotationDegrees = 0; break;
-                    case Surface.ROTATION_90: deviceRotationDegrees = 90; break;
-                    case Surface.ROTATION_180: deviceRotationDegrees = 180; break;
-                    case Surface.ROTATION_270: deviceRotationDegrees = 270; break;
-                }
-
-                DisplayMetrics metrics = new DisplayMetrics();
-                getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
-                int screenWidth = metrics.widthPixels;
-                int screenHeight = metrics.heightPixels;
-
-                boolean isNativeLandscape;
-                if (rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) {
-                    isNativeLandscape = screenWidth > screenHeight;
-                } else {
-                    isNativeLandscape = screenWidth < screenHeight;
-                }
-
-                int effectiveSensorOrientation = sensorOrientation;
-                if (isNativeLandscape && (sensorOrientation == 90 || sensorOrientation == 270)) {
-                    effectiveSensorOrientation = 0;
-                }
-
                 int relativeRotation;
-                if (activeFacing == CameraCharacteristics.LENS_FACING_FRONT) {
-                    relativeRotation = (effectiveSensorOrientation + deviceRotationDegrees) % 360;
+                if (rotation == Surface.ROTATION_90) {
+                    relativeRotation = (activeFacing == CameraCharacteristics.LENS_FACING_FRONT) ? 90 : 270;
+                } else if (rotation == Surface.ROTATION_270) {
+                    relativeRotation = (activeFacing == CameraCharacteristics.LENS_FACING_FRONT) ? 270 : 90;
                 } else {
-                    relativeRotation = (effectiveSensorOrientation - deviceRotationDegrees + 360) % 360;
+                    int deviceRotationDegrees = 0;
+                    switch (rotation) {
+                        case Surface.ROTATION_0: deviceRotationDegrees = 0; break;
+                        case Surface.ROTATION_90: deviceRotationDegrees = 90; break;
+                        case Surface.ROTATION_180: deviceRotationDegrees = 180; break;
+                        case Surface.ROTATION_270: deviceRotationDegrees = 270; break;
+                    }
+                    if (activeFacing == CameraCharacteristics.LENS_FACING_FRONT) {
+                        relativeRotation = (sensorOrientation + deviceRotationDegrees) % 360;
+                    } else {
+                        relativeRotation = (sensorOrientation - deviceRotationDegrees + 360) % 360;
+                    }
                 }
 
                 float centerX = viewWidth / 2f;

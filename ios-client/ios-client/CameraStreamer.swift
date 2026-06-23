@@ -62,9 +62,9 @@ class CameraStreamer: NSObject, ObservableObject {
             case .portraitUpsideDown:
                 videoOrientation = .portraitUpsideDown
             case .landscapeLeft:
-                videoOrientation = .landscapeLeft
-            case .landscapeRight:
                 videoOrientation = .landscapeRight
+            case .landscapeRight:
+                videoOrientation = .landscapeLeft
             default:
                 videoOrientation = .landscapeRight
             }

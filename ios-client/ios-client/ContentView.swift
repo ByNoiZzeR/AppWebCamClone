@@ -606,12 +606,14 @@ class PreviewUIView: UIView {
             case .portraitUpsideDown:
                 connection.videoOrientation = .portraitUpsideDown
             case .landscapeLeft:
-                connection.videoOrientation = .landscapeLeft
-            case .landscapeRight:
                 connection.videoOrientation = .landscapeRight
+            case .landscapeRight:
+                connection.videoOrientation = .landscapeLeft
             default:
-                break
+                connection.videoOrientation = .landscapeRight
             }
+        } else {
+            connection.videoOrientation = .landscapeRight
         }
     }
     
