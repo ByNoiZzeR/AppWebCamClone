@@ -262,8 +262,9 @@ struct ContentView: View {
             
             Spacer()
             
-            // IP : Port
-            Text("\(getWiFiAddress() ?? "No WiFi"):\(settings.port)")
+            // IP : Port (all interfaces so USB/Wi-Fi/Hotspot IPs are visible)
+            let ips = getAllIPAddresses()
+            Text(ips.isEmpty ? "No Network" : ips.map { "\($0):\(settings.port)" }.joined(separator: "  "))
                 .font(.system(size: 11, weight: .regular, design: .monospaced))
                 .foregroundColor(DesignTokens.labelTertiary)
             
@@ -367,28 +368,31 @@ struct ContentView: View {
         }
     }
     
-    private func getWiFiAddress() -> String? {
-        var address: String?
+    private func getAllIPAddresses() -> [String] {
+        var addresses: [String] = []
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&ifaddr) == 0 else { return nil }
-        guard let firstAddr = ifaddr else { return nil }
+        guard getifaddrs(&ifaddr) == 0 else { return addresses }
+        guard let firstAddr = ifaddr else { return addresses }
         
         for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
             let interface = ptr.pointee
             let addrFamily = interface.ifa_addr.pointee.sa_family
             if addrFamily == UInt8(AF_INET) {
                 let name = String(cString: interface.ifa_name)
-                if name == "en0" { // Wifi interface on iOS
-                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-                    getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
-                                &hostname, socklen_t(hostname.count),
-                                nil, socklen_t(0), NI_NUMERICHOST)
-                    address = String(cString: hostname)
+                if name == "lo0" { continue }
+                
+                var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
+                            &hostname, socklen_t(hostname.count),
+                            nil, socklen_t(0), NI_NUMERICHOST)
+                let ip = String(cString: hostname)
+                if !ip.isEmpty && ip != "0.0.0.0" {
+                    addresses.append(ip)
                 }
             }
         }
         freeifaddrs(ifaddr)
-        return address
+        return addresses
     }
 }
 
