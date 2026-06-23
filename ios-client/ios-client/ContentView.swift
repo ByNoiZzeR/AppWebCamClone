@@ -579,6 +579,21 @@ class PreviewUIView: UIView {
         previewLayer.videoGravity = .resizeAspectFill
         self.layer.addSublayer(previewLayer)
         self.previewLayer = previewLayer
+        
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(sessionDidStart),
+                                               name: .AVCaptureSessionDidStartRunning,
+                                               object: session)
+    }
+    
+    @objc private func sessionDidStart() {
+        DispatchQueue.main.async { [weak self] in
+            self?.updateOrientation()
+        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     required init?(coder: NSCoder) {

@@ -2109,7 +2109,6 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
                 float centerY = viewHeight / 2f;
 
                 matrix.postTranslate(-centerX, -centerY);
-                matrix.postScale((float) videoWidth / viewWidth, (float) videoHeight / viewHeight);
 
                 if (relativeRotation != 0) {
                     matrix.postRotate(relativeRotation);
@@ -2123,7 +2122,7 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
                 float scaleHeight = (float) viewHeight / bufferHeight;
                 float scale = Math.max(scaleWidth, scaleHeight);
 
-                matrix.postScale(scale, scale);
+                matrix.postScale(scale * (float) videoWidth / viewWidth, scale * (float) videoHeight / viewHeight);
 
                 boolean flipHorizontal = false;
                 boolean flipVertical = false;
