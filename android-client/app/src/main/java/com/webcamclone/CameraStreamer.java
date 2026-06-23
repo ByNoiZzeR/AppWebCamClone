@@ -135,7 +135,10 @@ public class CameraStreamer {
         this.targetHeight = wxh[1];
 
         closeCamera();
-        Log.i(TAG, "Streaming stopped, camera closed");
+        if (isPreviewRunning) {
+            openCamera();
+        }
+        Log.i(TAG, "Streaming stopped, preview running");
     }
 
     public synchronized void setTargetResolution(int width, int height) {

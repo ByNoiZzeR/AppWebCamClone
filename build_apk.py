@@ -96,9 +96,14 @@ if __name__ == "__main__":
         
         apk_path = os.path.join(WORKSPACE_DIR, "android-client", "app", "build", "outputs", "apk", "debug", "app-debug.apk")
         if os.path.exists(apk_path):
+            releases_dir = os.path.join(WORKSPACE_DIR, "releases")
+            if not os.path.exists(releases_dir):
+                os.makedirs(releases_dir)
+            release_apk_path = os.path.join(releases_dir, "OBS-Webcam-Clone.apk")
+            shutil.copy2(apk_path, release_apk_path)
             print("\n" + "="*50)
-            print("SUCCESS! APK successfully generated at:")
-            print(apk_path)
+            print("SUCCESS! APK successfully generated and copied to:")
+            print(release_apk_path)
             print("="*50)
         else:
             print("\nError: Build completed but APK was not found at target path.")

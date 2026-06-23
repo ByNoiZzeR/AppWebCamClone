@@ -66,6 +66,10 @@ public class SocketServer {
         return this.port;
     }
 
+    public boolean isServerRunning() {
+        return isRunning;
+    }
+
     public void start() {
         if (isRunning) return;
         isRunning = true;

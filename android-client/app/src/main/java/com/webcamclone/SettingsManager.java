@@ -80,4 +80,12 @@ public class SettingsManager {
     public void setFaceAutoFocus(boolean enabled) {
         prefs.edit().putBoolean("face_auto_focus", enabled).apply();
     }
+
+    public int getAccentColorIndex() {
+        return prefs.getInt("accent_color_index", 0);
+    }
+
+    public void setAccentColorIndex(int index) {
+        prefs.edit().putInt("accent_color_index", index).apply();
+    }
 }
