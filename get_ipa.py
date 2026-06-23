@@ -74,10 +74,10 @@ def main():
         print("Invalid format. Expected: username/repository (e.g., john-doe/my-webcam-clone)")
         return
         
-    url = f"https://github.com/{repo}/releases/download/v1.0.0/ios-client-unsigned.ipa"
+    url = f"https://raw.githubusercontent.com/{repo}/ipa-build/ios-client-unsigned.ipa"
     destination = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ios-client", "ios-client", "ios-client-unsigned.ipa")
     
-    print(f"Polling release URL: {url}")
+    print(f"Polling branch URL: {url}")
     print("Press Ctrl+C to cancel.")
     print("-" * 50)
     

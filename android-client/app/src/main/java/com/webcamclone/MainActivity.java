@@ -75,6 +75,8 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
     private FrameLayout permissionOverlay;
     private LinearLayout topHud;
     private LinearLayout bottomPanel;
+    private LinearLayout telemetryLayout;
+    private LinearLayout buttonRow;
     private FrameLayout standbyOverlay;
     private TextView standbyIpTextView;
     private TextView switchCamBtn;
@@ -767,7 +769,7 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
         bottomPanel.addView(voiceWaveform, waveParams);
 
         // 3b. Telemetry Row — Metric Tiles
-        LinearLayout telemetryLayout = new LinearLayout(this);
+        telemetryLayout = new LinearLayout(this);
         telemetryLayout.setOrientation(LinearLayout.HORIZONTAL);
         telemetryLayout.setGravity(Gravity.CENTER_VERTICAL);
         bottomPanel.addView(telemetryLayout, new LinearLayout.LayoutParams(
@@ -943,7 +945,7 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
         bottomPanel.addView(quickSelectorScroll, scrollParams);
 
         // 3d. Button Actions Row — Circle Buttons
-        LinearLayout buttonRow = new LinearLayout(this);
+        buttonRow = new LinearLayout(this);
         buttonRow.setOrientation(LinearLayout.HORIZONTAL);
         buttonRow.setGravity(Gravity.CENTER);
         bottomPanel.addView(buttonRow, new LinearLayout.LayoutParams(
@@ -2580,11 +2582,6 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
         FrameLayout.LayoutParams textureParams = (FrameLayout.LayoutParams) textureView.getLayoutParams();
         FrameLayout.LayoutParams topParams = (FrameLayout.LayoutParams) topHud.getLayoutParams();
         FrameLayout.LayoutParams bottomParams = (FrameLayout.LayoutParams) bottomPanel.getLayoutParams();
-        
-        // Find layout elements to adjust internally
-        LinearLayout telemetryLayout = (LinearLayout) bottomPanel.getChildAt(0);
-        View spacer = bottomPanel.getChildAt(1);
-        LinearLayout buttonRow = (LinearLayout) bottomPanel.getChildAt(2);
         
         if (telemetryLayout == null || buttonRow == null) return;
         
