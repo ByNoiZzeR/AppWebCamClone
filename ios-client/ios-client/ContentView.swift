@@ -385,110 +385,13 @@ struct ContentView: View {
     private var bottomPanel: some View {
         let isLandscape = verticalSizeClass == .compact
         return VStack(spacing: isLandscape ? 6 : 12) {
-            
             // Dynamic Audio Waveform Overlay when streaming
             WaveformView(isActive: socketServer.isStreaming)
                 .padding(.top, 4)
             
-            // Telemetry Metrics Row
-            HStack(spacing: 6) {
-                MetricTile(label: "Rate", value: socketServer.txRateText, color: DesignTokens.accent)
-                MetricTile(label: "Total", value: socketServer.totalTxText, color: DesignTokens.accent)
-                if !isLandscape {
-                    MetricTile(label: "Temp", value: deviceTemp, color: DesignTokens.green)
-                    MetricTile(label: "Battery", value: "\(batteryPercent)%", color: DesignTokens.green)
-                }
-                MetricTile(label: "Focus", value: streamer.focusModeText, color: DesignTokens.accent)
-                MetricTile(label: "Filter", value: streamer.filterModeText, color: DesignTokens.labelSecondary)
-            }
-            .frame(height: isLandscape ? 40 : 48)
-            
-            // Quick Resolution & FPS Selectors
-            HStack(spacing: 12) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(["640x480", "1280x720", "1920x1080", "2560x1440", "3840x2160"], id: \.self) { res in
-                            Button(action: {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    settings.resolution = res
-                                    if socketServer.isStreaming {
-                                        streamer.startStreaming(format: settings.format, width: parseWidth(res), height: parseHeight(res))
-                                    }
-                                }
-                            }) {
-                                Text(resolutionLabel(res))
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(settings.resolution == res ? .black : .white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(
-                                        Capsule()
-                                            .fill(settings.resolution == res ? DesignTokens.accent : Color.white.opacity(0.08))
-                                    )
-                            }
-                        }
-                    }
-                }
-                
-                Divider()
-                    .frame(height: 16)
-                    .background(Color.white.opacity(0.15))
-                
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach([15, 24, 30, 60], id: \.self) { fps in
-                            Button(action: {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    settings.framerate = fps
-                                }
-                            }) {
-                                Text("\(fps) FPS")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(settings.framerate == fps ? .black : .white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(
-                                        Capsule()
-                                            .fill(settings.framerate == fps ? DesignTokens.accent : Color.white.opacity(0.08))
-                                    )
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            
-            // Action Buttons Row
-            HStack(spacing: isLandscape ? 6 : 10) {
-                CircleActionButton(icon: "arrow.triangle.2.circlepath", label: "Flip", isActive: false, activeColor: DesignTokens.accent) {
-                    streamer.switchCamera()
-                }
-                
-                CircleActionButton(icon: "bolt.fill", label: "Light", isActive: streamer.torchEnabled, activeColor: DesignTokens.orange) {
-                    streamer.toggleTorch()
-                }
-                
-                CircleActionButton(icon: "paintpalette.fill", label: "Filter", isActive: streamer.filterModeText != "NORMAL", activeColor: DesignTokens.accent) {
-                    streamer.cycleFilter()
-                }
-                
-                CircleActionButton(icon: "scope", label: "Focus", isActive: false, activeColor: DesignTokens.green) {
-                    streamer.triggerAutofocus()
-                }
-                
-                CircleActionButton(icon: "gearshape.fill", label: "Settings", isActive: false, activeColor: DesignTokens.labelSecondary) {
-                    showSettings = true
-                }
-                
-                CircleActionButton(icon: "grid", label: "Guide", isActive: guideMode > 0, activeColor: DesignTokens.accent) {
-                    guideMode = (guideMode + 1) % 4
-                }
-                
-                CircleActionButton(icon: isPreviewMuted ? "eye.slash.fill" : "eye.fill", label: "Preview", isActive: isPreviewMuted, activeColor: DesignTokens.orange) {
-                    isPreviewMuted.toggle()
-                }
-            }
+            telemetryMetricsRow
+            quickSelectorsRow
+            actionButtonsRow
         }
         .padding(.horizontal, 16)
         .padding(.top, isLandscape ? 8 : 12)
@@ -498,6 +401,125 @@ struct ContentView: View {
                 .fill(Material.regularMaterial)
         )
         .padding(.horizontal, 8)
+    }
+    
+    // MARK: - Telemetry Metrics Row
+    private var telemetryMetricsRow: some View {
+        let isLandscape = verticalSizeClass == .compact
+        return HStack(spacing: 6) {
+            MetricTile(label: "Rate", value: socketServer.txRateText, color: DesignTokens.accent)
+            MetricTile(label: "Total", value: socketServer.totalTxText, color: DesignTokens.accent)
+            if !isLandscape {
+                MetricTile(label: "Temp", value: deviceTemp, color: DesignTokens.green)
+                MetricTile(label: "Battery", value: "\(batteryPercent)%", color: DesignTokens.green)
+            }
+            MetricTile(label: "Focus", value: streamer.focusModeText, color: DesignTokens.accent)
+            MetricTile(label: "Filter", value: streamer.filterModeText, color: DesignTokens.labelSecondary)
+        }
+        .frame(height: isLandscape ? 40 : 48)
+    }
+    
+    // MARK: - Quick Selectors Row
+    private var quickSelectorsRow: some View {
+        HStack(spacing: 12) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(["640x480", "1280x720", "1920x1080", "2560x1440", "3840x2160"], id: \.self) { res in
+                        Button(action: {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                settings.resolution = res
+                                if socketServer.isStreaming {
+                                    streamer.startStreaming(format: settings.format, width: parseWidth(res), height: parseHeight(res))
+                                }
+                            }
+                        }) {
+                            Text(resolutionLabel(res))
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(settings.resolution == res ? .black : .white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    Capsule()
+                                        .fill(settings.resolution == res ? DesignTokens.accent : Color.white.opacity(0.08))
+                                )
+                        }
+                    }
+                }
+            }
+            
+            Divider()
+                .frame(height: 16)
+                .background(Color.white.opacity(0.15))
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach([15, 24, 30, 60], id: \.self) { fps in
+                        Button(action: {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                settings.framerate = fps
+                            }
+                        }) {
+                            Text("\(fps) FPS")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(settings.framerate == fps ? .black : .white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    Capsule()
+                                        .fill(settings.framerate == fps ? DesignTokens.accent : Color.white.opacity(0.08))
+                                )
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+    }
+    
+    // MARK: - Action Buttons Row
+    private var actionButtonsRow: some View {
+        let isLandscape = verticalSizeClass == .compact
+        return HStack(spacing: isLandscape ? 6 : 10) {
+            CircleActionButton(icon: "arrow.triangle.2.circlepath", label: "Flip", isActive: false, activeColor: DesignTokens.accent) {
+                streamer.switchCamera()
+            }
+            
+            CircleActionButton(icon: "bolt.fill", label: "Light", isActive: streamer.torchEnabled, activeColor: DesignTokens.orange) {
+                streamer.toggleTorch()
+            }
+            
+            CircleActionButton(icon: "paintpalette.fill", label: "Filter", isActive: streamer.filterModeText != "NORMAL", activeColor: DesignTokens.accent) {
+                streamer.cycleFilter()
+            }
+            
+            CircleActionButton(icon: "scope", label: "Focus", isActive: false, activeColor: DesignTokens.green) {
+                streamer.triggerAutofocus()
+            }
+            
+            CircleActionButton(icon: "gearshape.fill", label: "Settings", isActive: false, activeColor: DesignTokens.labelSecondary) {
+                showSettings = true
+            }
+            
+            CircleActionButton(icon: "grid", label: "Guide", isActive: guideMode > 0, activeColor: DesignTokens.accent) {
+                guideMode = (guideMode + 1) % 4
+            }
+            
+            CircleActionButton(icon: isPreviewMuted ? "eye.slash.fill" : "eye.fill", label: "Preview", isActive: isPreviewMuted, activeColor: DesignTokens.orange) {
+                isPreviewMuted.toggle()
+            }
+        }
+    }
+    
+    private func resolutionLabel(_ res: String) -> String {
+        switch res {
+        case "3840x2160": return "4K"
+        case "2560x1440": return "2K"
+        case "1920x1080": return "1080p"
+        case "1280x720": return "720p"
+        case "640x480": return "480p"
+        default: return res
+        }
     }
     
     // MARK: - Helpers
