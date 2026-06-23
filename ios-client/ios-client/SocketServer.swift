@@ -38,7 +38,6 @@ class SocketServer: ObservableObject {
         do {
             let parameters = NWParameters.tcp
             // Allow fast reuse of port
-            parameters.requiredInterfaceType = .wifi
             parameters.allowLocalEndpointReuse = true
             
             let nwPort = NWEndpoint.Port(rawValue: UInt16(port))!
