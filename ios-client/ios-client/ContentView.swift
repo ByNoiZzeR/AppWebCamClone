@@ -8,6 +8,7 @@ struct ContentView: View {
     @StateObject private var socketServer = SocketServer()
     @StateObject private var streamer: CameraStreamer
     @Environment(\.verticalSizeClass) var verticalSizeClass
+    @Environment(\.scenePhase) var scenePhase
     
     @State private var showSettings = false
     @State private var guideMode = 0 // 0: None, 1: 3x3 Grid, 2: Crosshair, 3: TikTok 9:16
@@ -138,11 +139,14 @@ struct ContentView: View {
                 let keepOn = settings.keepScreenOn
                 let flipH = settings.flipHorizontal
                 let flipV = settings.flipVertical
-                let activeCamera = streamer.activeCameraPosition == .back ? "back" : "front"
+                let activeCamera = streamer.activeCameraPosition == .back ? "0" : "1"
                 let isAutofocusLocked = streamer.focusModeText == "AUTO-L"
                 let resolution = settings.resolution
                 let bitrate = settings.bitrate
                 let framerate = settings.framerate
+                
+                let supportedResolutions = streamer.getSupportedResolutions()
+                let resolutionsJSON = "[" + supportedResolutions.map { "\"\($0)\"" }.joined(separator: ",") + "]"
                 
                 return """
                 {
@@ -157,8 +161,8 @@ struct ContentView: View {
                     "resolution": "\(resolution)",
                     "bitrate": \(bitrate),
                     "framerate": \(framerate),
-                    "availableCameras": [{"id":"back","facing":"Back"},{"id":"front","facing":"Front"}],
-                    "availableResolutions": ["640x480","1280x720","1920x1080","2560x1440","3840x2160"]
+                    "availableCameras": [{"id":"0","facing":"Back"},{"id":"1","facing":"Front"}],
+                    "availableResolutions": \(resolutionsJSON)
                 }
                 """
             }
@@ -170,6 +174,17 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showSettings) {
             SettingsSheetView(showSettings: $showSettings, socketServer: socketServer)
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .active {
+                print("App active: restarting camera preview and socket server...")
+                streamer.startPreview()
+                socketServer.start(port: settings.port)
+            } else if newPhase == .background {
+                print("App in background: stopping camera preview and socket server to release port...")
+                streamer.stopPreview()
+                socketServer.stop()
+            }
         }
     }
     

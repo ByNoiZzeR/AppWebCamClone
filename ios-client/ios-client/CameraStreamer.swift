@@ -14,6 +14,7 @@ class CameraStreamer: NSObject, ObservableObject {
     private var videoDeviceInput: AVCaptureDeviceInput?
     private let videoDataOutput = AVCaptureVideoDataOutput()
     private let videoQueue = DispatchQueue(label: "com.webcamclone.videoQueue", qos: .userInteractive)
+    private let videoQueueKey = DispatchSpecificKey<Void>()
     
     private var compressionSession: VTCompressionSession?
     private var socketServer: SocketServer
@@ -30,6 +31,54 @@ class CameraStreamer: NSObject, ObservableObject {
     init(socketServer: SocketServer) {
         self.socketServer = socketServer
         super.init()
+        videoQueue.setSpecific(key: videoQueueKey, value: ())
+        NotificationCenter.default.addObserver(self, selector: #selector(handleOrientationChange), name: UIDevice.orientationDidChangeNotification, object: nil)
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    }
+    
+    @objc private func handleOrientationChange() {
+        self.updateConnectionOrientation()
+    }
+    
+    func updateConnectionOrientation() {
+        DispatchQueue.main.async {
+            let interfaceOrientation: UIInterfaceOrientation
+            if let windowScene = UIApplication.shared.connectedScenes
+                .first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) as? UIWindowScene {
+                interfaceOrientation = windowScene.interfaceOrientation
+            } else {
+                interfaceOrientation = .landscapeRight
+            }
+            
+            let videoOrientation: AVCaptureVideoOrientation
+            switch interfaceOrientation {
+            case .portrait:
+                videoOrientation = .portrait
+            case .portraitUpsideDown:
+                videoOrientation = .portraitUpsideDown
+            case .landscapeLeft:
+                videoOrientation = .landscapeLeft
+            case .landscapeRight:
+                videoOrientation = .landscapeRight
+            default:
+                videoOrientation = .landscapeRight
+            }
+            
+            DispatchQueue.global(qos: .userInteractive).async { [weak self] in
+                guard let self = self else { return }
+                if let connection = self.videoDataOutput.connection(with: .video) {
+                    if connection.isVideoOrientationSupported && connection.videoOrientation != videoOrientation {
+                        connection.videoOrientation = videoOrientation
+                        print("Updated videoDataOutput connection orientation to \(videoOrientation.rawValue)")
+                    }
+                }
+            }
+        }
     }
     
     func startPreview() {
@@ -91,13 +140,7 @@ class CameraStreamer: NSObject, ObservableObject {
             if captureSession.canAddOutput(videoDataOutput) {
                 captureSession.addOutput(videoDataOutput)
                 videoDataOutput.setSampleBufferDelegate(self, queue: videoQueue)
-                
-                // Set default orientation to landscapeRight once
-                if let connection = videoDataOutput.connection(with: .video) {
-                    if connection.isVideoOrientationSupported {
-                        connection.videoOrientation = .landscapeRight
-                    }
-                }
+                self.updateConnectionOrientation()
             }
             
             // Configure default frame duration (30 FPS)
@@ -125,32 +168,30 @@ class CameraStreamer: NSObject, ObservableObject {
     
     func startStreaming(format: String, width: Int, height: Int) {
         self.streamingFormat = format
-        self.width = width
-        self.height = height
         self.didSendConfig = false
         self.isStreaming = true
         
         // Match resolution preset in captureSession if needed
         DispatchQueue.global(qos: .userInitiated).async {
             self.captureSession.beginConfiguration()
-            if width >= 3840 && height >= 2160 {
+            let maxDim = max(width, height)
+            if maxDim >= 3840 {
                 if self.captureSession.canSetSessionPreset(.hd4K3840x2160) {
                     self.captureSession.sessionPreset = .hd4K3840x2160
                 } else if self.captureSession.canSetSessionPreset(.hd1920x1080) {
                     self.captureSession.sessionPreset = .hd1920x1080
                 }
-            } else if width >= 2560 && height >= 1440 {
+            } else if maxDim >= 2560 {
                 if self.captureSession.canSetSessionPreset(.hd4K3840x2160) {
-                    // Capture in 4K, let VideoToolbox downscale to 2K (2560x1440) during compression
                     self.captureSession.sessionPreset = .hd4K3840x2160
                 } else if self.captureSession.canSetSessionPreset(.hd1920x1080) {
                     self.captureSession.sessionPreset = .hd1920x1080
                 }
-            } else if width >= 1920 && height >= 1080 {
+            } else if maxDim >= 1920 {
                 if self.captureSession.canSetSessionPreset(.hd1920x1080) {
                     self.captureSession.sessionPreset = .hd1920x1080
                 }
-            } else if width >= 1280 && height >= 720 {
+            } else if maxDim >= 1280 {
                 if self.captureSession.canSetSessionPreset(.hd1280x720) {
                     self.captureSession.sessionPreset = .hd1280x720
                 }
@@ -161,15 +202,28 @@ class CameraStreamer: NSObject, ObservableObject {
             }
             self.captureSession.commitConfiguration()
             
-            // Ensure orientation is landscapeRight
-            if let connection = self.videoDataOutput.connection(with: .video) {
-                if connection.isVideoOrientationSupported {
-                    connection.videoOrientation = .landscapeRight
-                }
-            }
+            self.updateConnectionOrientation()
             
-            if format == "avc" || format == "hevc" {
-                self.setupCompressionSession(format: format, width: width, height: height)
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                let interfaceOrientation: UIInterfaceOrientation
+                if let windowScene = UIApplication.shared.connectedScenes
+                    .first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) as? UIWindowScene {
+                    interfaceOrientation = windowScene.interfaceOrientation
+                } else {
+                    interfaceOrientation = .landscapeRight
+                }
+                
+                let isPortrait = interfaceOrientation == .portrait || interfaceOrientation == .portraitUpsideDown
+                let finalWidth = isPortrait ? min(width, height) : max(width, height)
+                let finalHeight = isPortrait ? max(width, height) : min(width, height)
+                
+                self.width = finalWidth
+                self.height = finalHeight
+                
+                if format == "avc" || format == "hevc" {
+                    self.setupCompressionSession(format: format, width: finalWidth, height: finalHeight)
+                }
             }
         }
     }
@@ -184,51 +238,93 @@ class CameraStreamer: NSObject, ObservableObject {
     }
     
     private func setupCompressionSession(format: String, width: Int, height: Int) {
-        teardownCompressionSession()
-        
-        let codecType = (format == "hevc") ? kCMVideoCodecType_HEVC : kCMVideoCodecType_H264
-        
-        let status = VTCompressionSessionCreate(
-            allocator: kCFAllocatorDefault,
-            width: Int32(width),
-            height: Int32(height),
-            codecType: codecType,
-            encoderSpecification: nil,
-            imageBufferAttributes: nil,
-            compressedDataAllocator: nil,
-            outputCallback: compressionCallback,
-            refcon: Unmanaged.passUnretained(self).toOpaque(),
-            compressionSessionOut: &compressionSession
-        )
-        
-        guard status == noErr, let session = compressionSession else {
-            print("Failed to create compression session: \(status)")
-            return
+        videoQueue.async {
+            self.teardownCompressionSessionInternal()
+            
+            let codecType = (format == "hevc") ? kCMVideoCodecType_HEVC : kCMVideoCodecType_H264
+            
+            let status = VTCompressionSessionCreate(
+                allocator: kCFAllocatorDefault,
+                width: Int32(width),
+                height: Int32(height),
+                codecType: codecType,
+                encoderSpecification: nil,
+                imageBufferAttributes: nil,
+                compressedDataAllocator: nil,
+                outputCallback: compressionCallback,
+                refcon: Unmanaged.passUnretained(self).toOpaque(),
+                compressionSessionOut: &self.compressionSession
+            )
+            
+            guard status == noErr, let session = self.compressionSession else {
+                print("Failed to create compression session: \(status)")
+                return
+            }
+            
+            let settings = SettingsManager.shared
+            
+            VTSessionSetProperty(session, key: kVTCompressionPropertyKey_RealTime, value: kCFBooleanTrue)
+            VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
+            VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AverageBitRate, value: settings.bitrate as CFNumber)
+            VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: settings.framerate as CFNumber)
+            VTSessionSetProperty(session, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: (settings.framerate * 2) as CFNumber)
+            
+            if format == "avc" {
+                VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ProfileLevel, value: kVTProfileLevel_H264_High_AutoLevel)
+            } else {
+                VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ProfileLevel, value: kVTProfileLevel_HEVC_Main_AutoLevel)
+            }
+            
+            VTCompressionSessionPrepareToEncodeFrames(session)
+            print("Hardware encoder session created successfully for \(format.uppercased()) at \(width)x\(height)")
         }
-        
-        let settings = SettingsManager.shared
-        
-        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_RealTime, value: kCFBooleanTrue)
-        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
-        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AverageBitRate, value: settings.bitrate as CFNumber)
-        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: settings.framerate as CFNumber)
-        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: (settings.framerate * 2) as CFNumber)
-        
-        if format == "avc" {
-            VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ProfileLevel, value: kVTProfileLevel_H264_High_AutoLevel)
-        } else {
-            VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ProfileLevel, value: kVTProfileLevel_HEVC_Main_AutoLevel)
+    }
+    
+    private func teardownCompressionSessionInternal() {
+        if let session = self.compressionSession {
+            VTCompressionSessionInvalidate(session)
+            self.compressionSession = nil
         }
-        
-        VTCompressionSessionPrepareToEncodeFrames(session)
-        print("Hardware encoder session created successfully for \(format.uppercased())")
     }
     
     private func teardownCompressionSession() {
-        if let session = compressionSession {
-            VTCompressionSessionInvalidate(session)
-            compressionSession = nil
+        if DispatchQueue.getSpecific(key: videoQueueKey) != nil {
+            self.teardownCompressionSessionInternal()
+        } else {
+            videoQueue.sync {
+                self.teardownCompressionSessionInternal()
+            }
         }
+    }
+    
+    func getSupportedResolutions() -> [String] {
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: activeCameraPosition) else {
+            return ["640x480", "1280x720", "1920x1080"]
+        }
+        
+        var supports4K = false
+        var supports1080p = false
+        
+        for format in device.formats {
+            let desc = format.formatDescription
+            let dims = CMVideoFormatDescriptionGetDimensions(desc)
+            if dims.width >= 3840 && dims.height >= 2160 {
+                supports4K = true
+            }
+            if dims.width >= 1920 && dims.height >= 1080 {
+                supports1080p = true
+            }
+        }
+        
+        var list = ["640x480", "1280x720"]
+        if supports1080p {
+            list.append("1920x1080")
+        }
+        if supports4K {
+            list.append("2560x1440")
+            list.append("3840x2160")
+        }
+        return list
     }
     
     private func configureFPS(device: AVCaptureDevice, fps: Int) throws {
@@ -489,7 +585,53 @@ extension CameraStreamer: AVCaptureVideoDataOutputSampleBufferDelegate {
         
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
+        let bufferWidth = CVPixelBufferGetWidth(pixelBuffer)
+        let bufferHeight = CVPixelBufferGetHeight(pixelBuffer)
+        
         if streamingFormat == "avc" || streamingFormat == "hevc" {
+            // Recreate compression session dynamically if resolution changed
+            if bufferWidth != self.width || bufferHeight != self.height {
+                print("Stream resolution changed from \(self.width)x\(self.height) to \(bufferWidth)x\(bufferHeight). Recreating encoder...")
+                self.width = bufferWidth
+                self.height = bufferHeight
+                self.didSendConfig = false
+                self.teardownCompressionSessionInternal()
+                
+                let codecType = (streamingFormat == "hevc") ? kCMVideoCodecType_HEVC : kCMVideoCodecType_H264
+                let status = VTCompressionSessionCreate(
+                    allocator: kCFAllocatorDefault,
+                    width: Int32(bufferWidth),
+                    height: Int32(bufferHeight),
+                    codecType: codecType,
+                    encoderSpecification: nil,
+                    imageBufferAttributes: nil,
+                    compressedDataAllocator: nil,
+                    outputCallback: compressionCallback,
+                    refcon: Unmanaged.passUnretained(self).toOpaque(),
+                    compressionSessionOut: &self.compressionSession
+                )
+                
+                if status == noErr, let session = self.compressionSession {
+                    let settings = SettingsManager.shared
+                    VTSessionSetProperty(session, key: kVTCompressionPropertyKey_RealTime, value: kCFBooleanTrue)
+                    VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
+                    VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AverageBitRate, value: settings.bitrate as CFNumber)
+                    VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: settings.framerate as CFNumber)
+                    VTSessionSetProperty(session, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: (settings.framerate * 2) as CFNumber)
+                    
+                    if streamingFormat == "avc" {
+                        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ProfileLevel, value: kVTProfileLevel_H264_High_AutoLevel)
+                    } else {
+                        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ProfileLevel, value: kVTProfileLevel_HEVC_Main_AutoLevel)
+                    }
+                    
+                    VTCompressionSessionPrepareToEncodeFrames(session)
+                    print("Recreated compression session on the fly for \(bufferWidth)x\(bufferHeight)")
+                } else {
+                    print("Failed to recreate compression session: \(status)")
+                }
+            }
+            
             // Apply filter (optional) and compress
             let processedBuffer = applyImageFilter(pixelBuffer) ?? pixelBuffer
             if let session = compressionSession {
