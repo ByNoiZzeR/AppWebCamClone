@@ -397,6 +397,10 @@ bool FFMpegDecoder::decode_video(struct obs_source_frame2* obs_frame, DataPacket
 GOT_FRAME:
 	if (hw) {
 		if (frame_hw->format == hw_pix_fmt) {
+			av_frame_unref(frame);
+			frame->format = decoder->sw_pix_fmt;
+			frame->width = frame_hw->width;
+			frame->height = frame_hw->height;
 			if (av_hwframe_transfer_data(frame, frame_hw, 0) != 0
 					|| av_frame_copy_props(frame, frame_hw) != 0)
 				return false;
