@@ -27,12 +27,27 @@ jobs:
                      -scheme ios-client \
                      -configuration Release \
                      -sdk iphoneos \
-                     CODE_SIGN_IDENTITY="-" \
+                     CODE_SIGN_IDENTITY="" \
                      CODE_SIGNING_REQUIRED=NO \
-                     CODE_SIGNING_ALLOWED=YES \
-                     AD_HOC_CODE_SIGNING_ALLOWED=YES \
+                     CODE_SIGNING_ALLOWED=NO \
+                     AD_HOC_CODE_SIGNING_ALLOWED=NO \
                      SYMROOT=../build \
                      clean build > build.log 2>&1
+
+      - name: Strip Code Signature & Package Unsigned IPA
+        run: |
+          APP_PATH="build/Release-iphoneos/ios-client.app"
+          # Remove any code signature directory
+          rm -rf "${APP_PATH}/_CodeSignature"
+          # Remove any embedded provisioning profile
+          rm -f "${APP_PATH}/embedded.mobileprovision"
+          # Remove embedded signature from the binary (if any)
+          codesign --remove-signature "${APP_PATH}/ios-client" || true
+          # Package into IPA
+          mkdir -p Payload
+          cp -r "${APP_PATH}" Payload/
+          zip -r ios-client-unsigned.ipa Payload
+          rm -rf Payload
 
       - name: Commit and Push Build Log on Failure
         if: failure()
@@ -62,26 +77,26 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          cp ios-client.ipa ../ios-client-temp.ipa
+          cp ios-client-unsigned.ipa ../ios-client-temp.ipa
           git checkout --orphan ipa-build
           git rm -rf .
-          mv ../ios-client-temp.ipa ios-client.ipa
-          git add ios-client.ipa
-          git commit -m "Automated IPA build"
+          mv ../ios-client-temp.ipa ios-client-unsigned.ipa
+          git add ios-client-unsigned.ipa
+          git commit -m "Automated unsigned IPA build"
           git push origin HEAD:ipa-build --force
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-client-ipa
-          path: ios-client.ipa
+          name: ios-client-unsigned-ipa
+          path: ios-client-unsigned.ipa
           if-no-files-found: error
 
-      - name: Create Release and Upload IPA
+      - name: Create Release and Upload Unsigned IPA
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v1.0.0 --title "v1.0.0" --notes "Automated iOS client build" --clobber || true
-          gh release upload v1.0.0 ios-client.ipa --clobber || true
+          gh release create v1.0.0 --title "v1.0.0" --notes "Automated iOS client build (unsigned)" --clobber || true
+          gh release upload v1.0.0 ios-client-unsigned.ipa --clobber || true
 
 
