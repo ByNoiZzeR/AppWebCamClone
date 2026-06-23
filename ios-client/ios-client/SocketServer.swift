@@ -5,6 +5,7 @@ import UIKit
 
 class SocketServer: ObservableObject {
     @Published var isStreaming = false
+    @Published var isServerRunning = false
     @Published var currentStatus = "Ready for OBS connection"
     @Published var tallyStatus = "idle" // idle, preview, program
     @Published var txRateText = "0.0 KB/s"
@@ -51,9 +52,11 @@ class SocketServer: ObservableObject {
                     switch state {
                     case .ready:
                         self?.currentStatus = "Listening on port \(port)"
+                        self?.isServerRunning = true
                         print("Socket server ready on port \(port)")
                     case .failed(let error):
                         self?.currentStatus = "Start failed: \(error.localizedDescription)"
+                        self?.isServerRunning = false
                         print("Socket server failed: \(error)")
                     default:
                         break
@@ -86,6 +89,7 @@ class SocketServer: ObservableObject {
         connections.removeAll()
         
         isStreaming = false
+        isServerRunning = false
         currentStatus = "Server Stopped"
     }
     

@@ -481,6 +481,14 @@ struct ContentView: View {
     private var actionButtonsRow: some View {
         let isLandscape = verticalSizeClass == .compact
         return HStack(spacing: isLandscape ? 6 : 10) {
+            CircleActionButton(icon: socketServer.isServerRunning ? "wifi" : "wifi.slash", label: socketServer.isServerRunning ? "Stop" : "Start", isActive: socketServer.isServerRunning, activeColor: DesignTokens.green) {
+                if socketServer.isServerRunning {
+                    socketServer.stop()
+                } else {
+                    socketServer.start(port: settings.port)
+                }
+            }
+            
             CircleActionButton(icon: "arrow.triangle.2.circlepath", label: "Flip", isActive: false, activeColor: DesignTokens.accent) {
                 streamer.switchCamera()
             }
