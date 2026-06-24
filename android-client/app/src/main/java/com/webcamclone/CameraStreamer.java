@@ -731,9 +731,11 @@ public class CameraStreamer {
                 if (isAutofocusLocked) {
                     captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
                     captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+                    captureBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
                 } else {
                     captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
                     captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
+                    captureBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
                 }
                 captureSession.setRepeatingRequest(captureBuilder.build(), captureCallback, backgroundHandler);
             } catch (CameraAccessException e) {
@@ -749,7 +751,10 @@ public class CameraStreamer {
     public void triggerAutofocus() {
         if (captureSession == null || captureBuilder == null) return;
         try {
+            isAutofocusLocked = true;
+            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
             captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+            captureBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
             captureSession.capture(captureBuilder.build(), new CameraCaptureSession.CaptureCallback() {
                 @Override
                 public void onCaptureCompleted(@NonNull CameraCaptureSession session,
@@ -971,12 +976,15 @@ public class CameraStreamer {
         if (focusMode == 1) { // Manual Focus
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
             captureBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, manualFocusDistance);
+            captureBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
         } else {
             if (isAutofocusLocked) {
                 captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
                 captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
+                captureBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
             } else {
                 captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
+                captureBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
             }
         }
 
