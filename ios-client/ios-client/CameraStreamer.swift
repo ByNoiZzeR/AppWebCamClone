@@ -198,10 +198,10 @@ class CameraStreamer: NSObject, ObservableObject {
             }
             
             // Configure default frame duration (30 FPS)
-            try configureFPS(device: videoDevice, fps: 30)
+            try configureFPS(device: videoDeviceInputVal, fps: 30)
             
             // Auto focus continuous
-            try configureFocusMode(device: videoDevice, mode: .continuousAutoFocus)
+            try configureFocusMode(device: videoDeviceInputVal, mode: .continuousAutoFocus)
             
         } catch {
             print("Error setting up capture session: \(error)")
@@ -609,8 +609,8 @@ class CameraStreamer: NSObject, ObservableObject {
             if device.isFocusModeSupported(.autoFocus) {
                 device.focusMode = .autoFocus
             }
-            if device.isExposureModeSupported(.autoExposure) {
-                device.exposureMode = .autoExposure
+            if device.isExposureModeSupported(.autoExpose) {
+                device.exposureMode = .autoExpose
             }
             focusModeText = "AUTO-L"
             device.unlockForConfiguration()
