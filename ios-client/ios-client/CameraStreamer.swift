@@ -11,6 +11,7 @@ class CameraStreamer: NSObject, ObservableObject {
     @Published var torchEnabled = false
     @Published var focusModeText = "AUTO-C"
     @Published var filterModeText = "NORMAL"
+    @Published var currentFrame: CGImage? = nil
     
     let captureSession = AVCaptureSession()
     private var videoDeviceInput: AVCaptureDeviceInput?
@@ -762,9 +763,16 @@ class CameraStreamer: NSObject, ObservableObject {
 
 extension CameraStreamer: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard isStreaming else { return }
-        
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        
+        // 1. Apply image filter (or vertical flip) to the buffer
+        let processedBuffer = applyImageFilter(pixelBuffer) ?? pixelBuffer
+        
+        // 2. Render to local preview frame for SwiftUI
+        renderPreviewFrame(processedBuffer)
+        
+        // 3. Only compress and stream if we are streaming
+        guard isStreaming else { return }
         
         let bufferWidth = CVPixelBufferGetWidth(pixelBuffer)
         let bufferHeight = CVPixelBufferGetHeight(pixelBuffer)
@@ -813,8 +821,6 @@ extension CameraStreamer: AVCaptureVideoDataOutputSampleBufferDelegate {
                 }
             }
             
-            // Apply filter (optional) and compress
-            let processedBuffer = applyImageFilter(pixelBuffer) ?? pixelBuffer
             if let session = compressionSession {
                 let ptsTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
                 VTCompressionSessionEncodeFrame(
@@ -829,7 +835,6 @@ extension CameraStreamer: AVCaptureVideoDataOutputSampleBufferDelegate {
             }
         } else if streamingFormat == "jpg" {
             // JPEG / MJPEG Mode
-            let processedBuffer = applyImageFilter(pixelBuffer) ?? pixelBuffer
             let ciImage = CIImage(cvPixelBuffer: processedBuffer)
             
             // Convert to JPEG data
@@ -841,6 +846,15 @@ extension CameraStreamer: AVCaptureVideoDataOutputSampleBufferDelegate {
             let ptsTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
             let ptsNs = Int64(ptsTime.seconds * 1_000_000_000)
             socketServer.sendVideoFrame(pts: ptsNs, data: jpegData)
+        }
+    }
+    
+    private func renderPreviewFrame(_ pixelBuffer: CVPixelBuffer) {
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        if let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) {
+            DispatchQueue.main.async {
+                self.currentFrame = cgImage
+            }
         }
     }
 }

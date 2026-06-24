@@ -141,13 +141,15 @@ struct ContentView: View {
             if !isPreviewMuted {
                 GeometryReader { geo in
                     let isPortrait = geo.size.height > geo.size.width
-                    CameraPreview(
-                        session: streamer.captureSession,
-                        flipHorizontal: settings.flipHorizontal,
-                        flipVertical: settings.flipVertical,
-                        activeCameraPosition: streamer.activeCameraPosition
-                    )
-                    .aspectRatio(isPortrait ? 9.0/16.0 : 16.0/9.0, contentMode: .fit)
+                    Group {
+                        if let cgImage = streamer.currentFrame {
+                            Image(cgImage, scale: 1.0, orientation: .up, label: Text("Camera Preview"))
+                                .resizable()
+                                .aspectRatio(isPortrait ? 9.0/16.0 : 16.0/9.0, contentMode: .fit)
+                        } else {
+                            Color.black
+                        }
+                    }
                     .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
                 }
                 .ignoresSafeArea()
@@ -181,6 +183,8 @@ struct ContentView: View {
             
             // 3. Immersive camera controls overlay
             if !isUiHidden {
+                let isPortrait = UIScreen.main.bounds.height > UIScreen.main.bounds.width
+                
                 VStack(spacing: 0) {
                     // Top HUD
                     topHudHeaderView
@@ -198,6 +202,13 @@ struct ContentView: View {
                     Spacer()
                         .allowsHitTesting(false)
                     
+                    // In Portrait, place the Quick Preferences menu horizontally above the Lens Selector
+                    if isPortrait && !isPreviewMuted {
+                        quickPreferencesSidebar
+                            .padding(.bottom, 8)
+                            .transition(.opacity)
+                    }
+                    
                     // Lens Selector above bottom controls
                     if !isPreviewMuted {
                         LensSelectorView(streamer: streamer)
@@ -210,14 +221,14 @@ struct ContentView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 
-                // Sidebar aligned to leading edge (left)
-                HStack {
-                    if !isPreviewMuted {
+                // In Landscape, place the Quick Preferences sidebar vertically on the left
+                if !isPortrait && !isPreviewMuted {
+                    HStack {
                         quickPreferencesSidebar
                             .padding(.leading, 12)
                             .transition(.move(edge: .leading).combined(with: .opacity))
+                        Spacer()
                     }
-                    Spacer()
                 }
             }
             
@@ -608,79 +619,22 @@ struct ContentView: View {
     
     // MARK: - Quick Preferences & Bitrate
     private var quickPreferencesSidebar: some View {
-        VStack(spacing: 12) {
-            // Face AF
-            QuickPrefButton(
-                icon: "person.fill.viewfinder",
-                text: nil,
-                isActive: settings.faceAutoFocus,
-                action: {
-                    triggerHapticFeedback(.light)
-                    settings.faceAutoFocus.toggle()
+        Group {
+            let isPortrait = UIScreen.main.bounds.height > UIScreen.main.bounds.width
+            if isPortrait {
+                HStack(spacing: 10) {
+                    prefButtons
                 }
-            )
-            
-            // Video Stabilization
-            QuickPrefButton(
-                icon: "waveform",
-                text: nil,
-                isActive: settings.videoStabilization,
-                action: {
-                    triggerHapticFeedback(.light)
-                    settings.videoStabilization.toggle()
-                    streamer.updateConnectionOrientation()
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+            } else {
+                VStack(spacing: 12) {
+                    prefButtons
                 }
-            )
-            
-            // Keep Screen On
-            QuickPrefButton(
-                icon: "sun.max.fill",
-                text: nil,
-                isActive: settings.keepScreenOn,
-                action: {
-                    triggerHapticFeedback(.light)
-                    settings.keepScreenOn.toggle()
-                    UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
-                }
-            )
-            
-            // Flip H
-            QuickPrefButton(
-                icon: "arrow.left.and.right",
-                text: nil,
-                isActive: settings.flipHorizontal,
-                action: {
-                    triggerHapticFeedback(.light)
-                    settings.flipHorizontal.toggle()
-                    streamer.updateConnectionOrientation()
-                }
-            )
-            
-            // Flip V
-            QuickPrefButton(
-                icon: "arrow.up.and.down",
-                text: nil,
-                isActive: settings.flipVertical,
-                action: {
-                    triggerHapticFeedback(.light)
-                    settings.flipVertical.toggle()
-                    streamer.updateConnectionOrientation()
-                }
-            )
-            
-            // Bitrate cycler
-            QuickPrefButton(
-                icon: nil,
-                text: bitrateLabel(settings.bitrate),
-                isActive: false,
-                action: {
-                    triggerHapticFeedback(.light)
-                    cycleBitrate()
-                }
-            )
+                .padding(.vertical, 12)
+                .padding(.horizontal, 8)
+            }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 24)
                 .fill(Color.black.opacity(0.35))
@@ -688,6 +642,79 @@ struct ContentView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 24)
                 .stroke(Color.white.opacity(0.15), lineWidth: 1)
+        )
+    }
+    
+    @ViewBuilder
+    private var prefButtons: some View {
+        // Face AF
+        QuickPrefButton(
+            icon: "person.fill.viewfinder",
+            text: nil,
+            isActive: settings.faceAutoFocus,
+            action: {
+                triggerHapticFeedback(.light)
+                settings.faceAutoFocus.toggle()
+            }
+        )
+        
+        // Video Stabilization
+        QuickPrefButton(
+            icon: "waveform",
+            text: nil,
+            isActive: settings.videoStabilization,
+            action: {
+                triggerHapticFeedback(.light)
+                settings.videoStabilization.toggle()
+                streamer.updateConnectionOrientation()
+            }
+        )
+        
+        // Keep Screen On
+        QuickPrefButton(
+            icon: "sun.max.fill",
+            text: nil,
+            isActive: settings.keepScreenOn,
+            action: {
+                triggerHapticFeedback(.light)
+                settings.keepScreenOn.toggle()
+                UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
+            }
+        )
+        
+        // Flip H
+        QuickPrefButton(
+            icon: "arrow.left.and.right",
+            text: nil,
+            isActive: settings.flipHorizontal,
+            action: {
+                triggerHapticFeedback(.light)
+                settings.flipHorizontal.toggle()
+                streamer.updateConnectionOrientation()
+            }
+        )
+        
+        // Flip V
+        QuickPrefButton(
+            icon: "arrow.up.and.down",
+            text: nil,
+            isActive: settings.flipVertical,
+            action: {
+                triggerHapticFeedback(.light)
+                settings.flipVertical.toggle()
+                streamer.updateConnectionOrientation()
+            }
+        )
+        
+        // Bitrate cycler
+        QuickPrefButton(
+            icon: nil,
+            text: bitrateLabel(settings.bitrate),
+            isActive: false,
+            action: {
+                triggerHapticFeedback(.light)
+                cycleBitrate()
+            }
         )
     }
     

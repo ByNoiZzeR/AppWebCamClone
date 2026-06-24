@@ -1270,6 +1270,7 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
         if (ipTextView != null) {
             ipTextView.setText(getWifiIpAddress() + ":" + settingsManager.getPort());
         }
+        updateLeftPrefsBarLayout();
     }
 
     // ── StreamListener implementation ──
@@ -2917,13 +2918,15 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
         bg.setShape(GradientDrawable.OVAL);
 
         if (isActive) {
-            bg.setColor(Color.parseColor(activeColor));
-            btn.setTextColor(Color.BLACK);
-            bg.setStroke(dpToPx(1.5f), Color.parseColor(activeColor));
+            // Match iOS active: 15% opacity accent fill, 60% opacity accent stroke, accent text
+            bg.setColor(Color.parseColor("#2664D2FF")); // 15% opacity of #64D2FF
+            btn.setTextColor(Color.parseColor("#FF64D2FF")); // Full #64D2FF
+            bg.setStroke(dpToPx(1.5f), Color.parseColor("#9964D2FF")); // 60% opacity of #64D2FF
         } else {
-            bg.setColor(Color.parseColor("#80000000"));
+            // Match iOS inactive: 45% opacity black fill, 25% opacity white stroke, white text
+            bg.setColor(Color.parseColor("#73000000")); // 45% opacity black
             btn.setTextColor(Color.WHITE);
-            bg.setStroke(dpToPx(1.0f), Color.parseColor("#33FFFFFF"));
+            bg.setStroke(dpToPx(1.0f), Color.parseColor("#40FFFFFF")); // 25% opacity white
         }
         btn.setBackground(bg);
     }
@@ -3092,6 +3095,56 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
         });
         leftPrefsBar.addView(cycleBitrateBtn, btnLp);
 
+        updateLeftPrefsBarLayout();
         updatePrefsHudButtons();
+    }
+
+    private void updateLeftPrefsBarLayout() {
+        if (leftPrefsBar == null) return;
+
+        boolean isPortrait = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT;
+        leftPrefsBar.setOrientation(isPortrait ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) leftPrefsBar.getLayoutParams();
+        if (params == null) {
+            params = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+
+        if (isPortrait) {
+            params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            params.leftMargin = 0;
+            params.bottomMargin = dpToPx(72);
+            leftPrefsBar.setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(8));
+        } else {
+            params.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
+            params.leftMargin = dpToPx(16);
+            params.bottomMargin = 0;
+            leftPrefsBar.setPadding(dpToPx(8), dpToPx(12), dpToPx(8), dpToPx(12));
+        }
+        leftPrefsBar.setLayoutParams(params);
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setColor(Color.parseColor("#59000000")); // 35% opacity black
+        bg.setCornerRadius(dpToPx(24));
+        bg.setStroke(dpToPx(1), Color.parseColor("#26FFFFFF")); // 15% opacity white
+        leftPrefsBar.setBackground(bg);
+
+        int childCount = leftPrefsBar.getChildCount();
+        int btnSize = dpToPx(34);
+        for (int i = 0; i < childCount; i++) {
+            View child = leftPrefsBar.getChildAt(i);
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) child.getLayoutParams();
+            if (lp == null) {
+                lp = new LinearLayout.LayoutParams(btnSize, btnSize);
+            }
+            if (isPortrait) {
+                lp.setMargins(dpToPx(6), 0, dpToPx(6), 0);
+            } else {
+                lp.setMargins(0, dpToPx(6), 0, dpToPx(6));
+            }
+            child.setLayoutParams(lp);
+        }
     }
 }
