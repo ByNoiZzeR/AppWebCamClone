@@ -6,6 +6,8 @@ import UIKit
 class CameraStreamer: NSObject, ObservableObject {
     @Published var isPreviewRunning = false
     @Published var activeCameraPosition: AVCaptureDevice.Position = .back
+    @Published var activeLensType: AVCaptureDevice.DeviceType = .builtInWideAngleCamera
+    @Published var availableLenses: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]
     @Published var torchEnabled = false
     @Published var focusModeText = "AUTO-C"
     @Published var filterModeText = "NORMAL"
@@ -41,6 +43,38 @@ class CameraStreamer: NSObject, ObservableObject {
         UIDevice.current.endGeneratingDeviceOrientationNotifications()
     }
     
+    func updateAvailableLenses() {
+        let discoverySession = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInUltraWideCamera, .builtInWideAngleCamera, .builtInTelephotoCamera],
+            mediaType: .video,
+            position: activeCameraPosition
+        )
+        let lenses = discoverySession.devices.map { $0.deviceType }
+        DispatchQueue.main.async {
+            self.availableLenses = lenses.isEmpty ? [.builtInWideAngleCamera] : lenses
+            if !self.availableLenses.contains(self.activeLensType) {
+                self.activeLensType = self.availableLenses.first ?? .builtInWideAngleCamera
+            }
+        }
+    }
+    
+    func selectLens(_ lensType: AVCaptureDevice.DeviceType) {
+        guard activeLensType != lensType else { return }
+        activeLensType = lensType
+        
+        if isPreviewRunning {
+            DispatchQueue.global(qos: .userInitiated).async {
+                self.teardownCaptureSession()
+                self.setupCaptureSession()
+                
+                // Restart encoding if streaming
+                if self.isStreaming && (self.streamingFormat == "avc" || self.streamingFormat == "hevc") {
+                    self.setupCompressionSession(format: self.streamingFormat, width: self.width, height: self.height)
+                }
+            }
+        }
+    }
+
     @objc private func handleOrientationChange() {
         self.updateConnectionOrientation()
     }
@@ -69,12 +103,25 @@ class CameraStreamer: NSObject, ObservableObject {
                 videoOrientation = .landscapeRight
             }
             
+            let settings = SettingsManager.shared
+            let isFront = self.activeCameraPosition == .front
+            let shouldMirror = isFront != settings.flipHorizontal
+            
             DispatchQueue.global(qos: .userInteractive).async { [weak self] in
                 guard let self = self else { return }
                 if let connection = self.videoDataOutput.connection(with: .video) {
                     if connection.isVideoOrientationSupported && connection.videoOrientation != videoOrientation {
                         connection.videoOrientation = videoOrientation
                         print("Updated videoDataOutput connection orientation to \(videoOrientation.rawValue)")
+                    }
+                    if connection.isVideoMirroringSupported {
+                        connection.automaticallyAdjustsVideoMirroring = false
+                        connection.isVideoMirrored = shouldMirror
+                        print("Updated videoDataOutput connection mirroring to \(shouldMirror)")
+                    }
+                    if connection.isVideoStabilizationSupported {
+                        connection.preferredVideoStabilizationMode = settings.videoStabilization ? .auto : .off
+                        print("Updated videoDataOutput stabilization to \(settings.videoStabilization)")
                     }
                 }
             }
@@ -90,6 +137,8 @@ class CameraStreamer: NSObject, ObservableObject {
                 print("Camera permission denied")
                 return
             }
+            
+            self.updateAvailableLenses()
             
             DispatchQueue.global(qos: .userInitiated).async {
                 self.setupCaptureSession()
@@ -118,14 +167,19 @@ class CameraStreamer: NSObject, ObservableObject {
         captureSession.beginConfiguration()
         captureSession.sessionPreset = .hd1280x720 // default, will auto scale
         
-        // Select device
-        guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: activeCameraPosition) else {
+        // Select device based on active lens and camera position
+        var videoDevice = AVCaptureDevice.default(activeLensType, for: .video, position: activeCameraPosition)
+        if videoDevice == nil {
+            videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: activeCameraPosition)
+        }
+        
+        guard let videoDeviceInputVal = videoDevice else {
             print("No camera found")
             return
         }
         
         do {
-            let input = try AVCaptureDeviceInput(device: videoDevice)
+            let input = try AVCaptureDeviceInput(device: videoDeviceInputVal)
             if captureSession.canAddInput(input) {
                 captureSession.addInput(input)
                 videoDeviceInput = input
@@ -475,6 +529,15 @@ class CameraStreamer: NSObject, ObservableObject {
         activeCameraPosition = (activeCameraPosition == .back) ? .front : .back
         torchEnabled = false
         
+        // Reset active lens type for front/back
+        if activeCameraPosition == .front {
+            activeLensType = .builtInWideAngleCamera
+        } else {
+            activeLensType = .builtInWideAngleCamera
+        }
+        
+        updateAvailableLenses()
+        
         if isPreviewRunning {
             DispatchQueue.global(qos: .userInitiated).async {
                 self.teardownCaptureSession()
@@ -534,6 +597,16 @@ class CameraStreamer: NSObject, ObservableObject {
         }
     }
     
+    func updateBitrateOnTheFly() {
+        videoQueue.async {
+            if let session = self.compressionSession {
+                let settings = SettingsManager.shared
+                let status = VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AverageBitRate, value: settings.bitrate as CFNumber)
+                print("Updated average bitrate on the fly to \(settings.bitrate) status: \(status)")
+            }
+        }
+    }
+    
     func cycleFilter() {
         currentFilterEffect = (currentFilterEffect + 1) % 6
         let filterLabels = ["NORMAL", "BEAUTY", "PORTRAIT", "COMIC", "NEON", "GLITCH"]
@@ -550,9 +623,14 @@ class CameraStreamer: NSObject, ObservableObject {
     
     // Apply core image filter to the sample buffer pixel buffer (used in MJPEG and H264/HEVC modes)
     private func applyImageFilter(_ pixelBuffer: CVPixelBuffer) -> CVPixelBuffer? {
-        guard currentFilterEffect > 0 else { return pixelBuffer }
+        let settings = SettingsManager.shared
+        guard currentFilterEffect > 0 || settings.flipVertical else { return pixelBuffer }
         
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        var ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        if settings.flipVertical {
+            ciImage = ciImage.oriented(.downMirrored)
+        }
+        
         var filteredImage: CIImage?
         
         let width = CGFloat(CVPixelBufferGetWidth(pixelBuffer))

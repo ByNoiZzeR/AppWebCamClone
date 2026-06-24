@@ -88,4 +88,52 @@ public class SettingsManager {
     public void setAccentColorIndex(int index) {
         prefs.edit().putInt("accent_color_index", index).apply();
     }
+
+    public float getZoomFactor() {
+        return prefs.getFloat("zoom_factor", 1.0f);
+    }
+
+    public void setZoomFactor(float zoom) {
+        prefs.edit().putFloat("zoom_factor", zoom).apply();
+    }
+
+    public int getExposureCompensation() {
+        return prefs.getInt("exposure_compensation", 0);
+    }
+
+    public void setExposureCompensation(int ec) {
+        prefs.edit().putInt("exposure_compensation", ec).apply();
+    }
+
+    public int getFocusMode() {
+        return prefs.getInt("focus_mode", 0); // 0 = Auto-Continuous, 1 = Manual
+    }
+
+    public void setFocusMode(int mode) {
+        prefs.edit().putInt("focus_mode", mode).apply();
+    }
+
+    public float getManualFocusDistance() {
+        return prefs.getFloat("manual_focus_distance", 0.0f);
+    }
+
+    public void setManualFocusDistance(float distance) {
+        prefs.edit().putFloat("manual_focus_distance", distance).apply();
+    }
+
+    public int getAwbMode() {
+        return prefs.getInt("awb_mode", 1); // CONTROL_AWB_MODE_AUTO is 1 in Android CameraMetadata
+    }
+
+    public void setAwbMode(int mode) {
+        prefs.edit().putInt("awb_mode", mode).apply();
+    }
+
+    public boolean getStabilizationEnabled() {
+        return prefs.getBoolean("stabilization_enabled", true);
+    }
+
+    public void setStabilizationEnabled(boolean enabled) {
+        prefs.edit().putBoolean("stabilization_enabled", enabled).apply();
+    }
 }

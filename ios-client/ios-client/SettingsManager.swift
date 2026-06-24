@@ -31,6 +31,9 @@ class SettingsManager: ObservableObject {
     @Published var faceAutoFocus: Bool {
         didSet { UserDefaults.standard.set(faceAutoFocus, forKey: "faceAutoFocus") }
     }
+    @Published var videoStabilization: Bool {
+        didSet { UserDefaults.standard.set(videoStabilization, forKey: "videoStabilization") }
+    }
     @Published var activeCameraId: String {
         didSet { UserDefaults.standard.set(activeCameraId, forKey: "activeCameraId") }
     }
@@ -46,6 +49,7 @@ class SettingsManager: ObservableObject {
             "flipHorizontal": false,
             "flipVertical": false,
             "faceAutoFocus": true,
+            "videoStabilization": true,
             "activeCameraId": "back"
         ])
         
@@ -58,6 +62,7 @@ class SettingsManager: ObservableObject {
         self.flipHorizontal = UserDefaults.standard.bool(forKey: "flipHorizontal")
         self.flipVertical = UserDefaults.standard.bool(forKey: "flipVertical")
         self.faceAutoFocus = UserDefaults.standard.bool(forKey: "faceAutoFocus")
+        self.videoStabilization = UserDefaults.standard.bool(forKey: "videoStabilization")
         self.activeCameraId = UserDefaults.standard.string(forKey: "activeCameraId") ?? "back"
     }
 }

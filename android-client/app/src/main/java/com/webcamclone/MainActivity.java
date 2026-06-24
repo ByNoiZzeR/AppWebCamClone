@@ -43,6 +43,12 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+import android.view.ScaleGestureDetector;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -136,6 +142,14 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
     private boolean isSurfaceReady = false;
     private SettingsManager settingsManager;
     private FrameLayout rootLayout;
+    private LinearLayout lensSelectorLayout;
+    private LinearLayout leftPrefsBar;
+    private TextView toggleKeepScreenOnBtn;
+    private TextView toggleFlipHBtn;
+    private TextView toggleFlipVBtn;
+    private TextView toggleFaceAfBtn;
+    private TextView toggleStabBtn;
+    private TextView cycleBitrateBtn;
 
     // Preview Mute
     private boolean isPreviewMuted = false;
@@ -471,20 +485,49 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
         rootLayout.addView(guidesOverlay, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // Single and Double Tap listeners on viewfinder
-        textureView.setOnClickListener(new View.OnClickListener() {
+        // ── Touch and Pinch Zoom Gestures on viewfinder ──
+        final ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(this, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
             @Override
-            public void onClick(View v) {
-                long now = System.currentTimeMillis();
-                if (now - lastTapTime < 300) {
-                    toggleUiVisibility();
-                } else {
-                    if (cameraStreamer != null) {
-                        cameraStreamer.triggerAutofocus();
-                        showToast("Autofocus triggered");
-                    }
+            public boolean onScale(ScaleGestureDetector detector) {
+                if (cameraStreamer != null) {
+                    float currentZoom = cameraStreamer.getZoomFactor();
+                    float scaleFactor = detector.getScaleFactor();
+                    float targetZoom = currentZoom * scaleFactor;
+                    float maxZoom = cameraStreamer.getMaxZoom();
+                    targetZoom = Math.max(1.0f, Math.min(targetZoom, maxZoom));
+                    cameraStreamer.setZoomFactor(targetZoom);
+                    showToast(String.format(Locale.US, "Zoom: %.1fx", targetZoom));
                 }
-                lastTapTime = now;
+                return true;
+            }
+        });
+
+        final GestureDetector gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                if (cameraStreamer != null && textureView != null) {
+                    cameraStreamer.applyFocusAtPoint(e.getX(), e.getY(), textureView.getWidth(), textureView.getHeight());
+                    showToast("Focusing...");
+                }
+                return true;
+            }
+
+            @Override
+            public boolean onDoubleTap(MotionEvent e) {
+                toggleUiVisibility();
+                return true;
+            }
+        });
+
+        textureView.setOnTouchListener(new View.OnTouchListener() {
+            @android.annotation.SuppressLint("ClickableViewAccessibility")
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                scaleGestureDetector.onTouchEvent(event);
+                if (!scaleGestureDetector.isInProgress()) {
+                    gestureDetector.onTouchEvent(event);
+                }
+                return true;
             }
         });
 
@@ -963,6 +1006,56 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
 
         setContentView(rootLayout);
 
+        ViewCompat.setOnApplyWindowInsetsListener(rootLayout, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets displayCutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout());
+
+            int topInset = Math.max(systemBars.top, displayCutout.top);
+            int leftInset = Math.max(systemBars.left, displayCutout.left);
+            int rightInset = Math.max(systemBars.right, displayCutout.right);
+            int bottomInset = Math.max(systemBars.bottom, displayCutout.bottom);
+
+            topHud.setPadding(
+                dpToPx(16) + leftInset,
+                dpToPx(16) + topInset,
+                dpToPx(16) + rightInset,
+                dpToPx(10)
+            );
+
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) resFpsPill.getLayoutParams();
+            if (lp != null) {
+                lp.topMargin = topInset + dpToPx(60);
+                lp.leftMargin = leftInset;
+                lp.rightMargin = dpToPx(16) + rightInset;
+                resFpsPill.setLayoutParams(lp);
+            }
+
+            bottomPanel.setPadding(
+                dpToPx(16) + leftInset,
+                dpToPx(12),
+                dpToPx(16) + rightInset,
+                dpToPx(24) + bottomInset
+            );
+
+            if (lensSelectorLayout != null) {
+                FrameLayout.LayoutParams lensLp = (FrameLayout.LayoutParams) lensSelectorLayout.getLayoutParams();
+                if (lensLp != null) {
+                    lensLp.bottomMargin = bottomInset + dpToPx(205);
+                    lensSelectorLayout.setLayoutParams(lensLp);
+                }
+            }
+
+            if (leftPrefsBar != null) {
+                FrameLayout.LayoutParams leftParams = (FrameLayout.LayoutParams) leftPrefsBar.getLayoutParams();
+                if (leftParams != null) {
+                    leftParams.leftMargin = leftInset + dpToPx(16);
+                    leftPrefsBar.setLayoutParams(leftParams);
+                }
+            }
+
+            return insets;
+        });
+
         // Bind TextureView surface listener
         textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
@@ -1001,6 +1094,8 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
         socketServer = new SocketServer(this);
         cameraStreamer = new CameraStreamer(this, socketServer, this);
 
+        initializeLeftPrefsBar();
+
         checkAndRequestPermissions();
         updateResolutionFPSIndicator();
         updateShutterButtonState();
@@ -1035,12 +1130,35 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
 
         if (textureView == null || topHud == null || bottomPanel == null) return;
 
-        // Viewfinder is full screen
+        // Viewfinder is 16:9 aspect ratio and centered
+        int targetW = height * 16 / 9;
+        int targetH = height;
+        if (targetW > width) {
+            targetW = width;
+            targetH = width * 9 / 16;
+        }
+
         FrameLayout.LayoutParams textureParams = (FrameLayout.LayoutParams) textureView.getLayoutParams();
-        textureParams.width = ViewGroup.LayoutParams.MATCH_PARENT;
-        textureParams.height = ViewGroup.LayoutParams.MATCH_PARENT;
+        textureParams.width = targetW;
+        textureParams.height = targetH;
         textureParams.gravity = Gravity.CENTER;
         textureView.setLayoutParams(textureParams);
+
+        if (guidesOverlay != null) {
+            FrameLayout.LayoutParams guidesParams = (FrameLayout.LayoutParams) guidesOverlay.getLayoutParams();
+            guidesParams.width = targetW;
+            guidesParams.height = targetH;
+            guidesParams.gravity = Gravity.CENTER;
+            guidesOverlay.setLayoutParams(guidesParams);
+        }
+
+        if (previewMuteOverlay != null) {
+            FrameLayout.LayoutParams muteParams = (FrameLayout.LayoutParams) previewMuteOverlay.getLayoutParams();
+            muteParams.width = targetW;
+            muteParams.height = targetH;
+            muteParams.gravity = Gravity.CENTER;
+            previewMuteOverlay.setLayoutParams(muteParams);
+        }
 
         // Top bar overlay
         FrameLayout.LayoutParams topParams = (FrameLayout.LayoutParams) topHud.getLayoutParams();
@@ -1114,6 +1232,7 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
             }
         }
         updateShutterButtonState();
+        updatePrefsHudButtons();
     }
 
     @Override
@@ -1255,6 +1374,7 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
                 currentVideoWidth = width;
                 currentVideoHeight = height;
                 adjustAspectRatio(width, height);
+                setupLensSelector();
             }
         });
     }
@@ -1417,6 +1537,12 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
         topHud.animate().alpha(targetAlpha).setDuration(250).start();
         bottomPanel.animate().alpha(targetAlpha).setDuration(250).start();
         resFpsPill.animate().alpha(targetAlpha).setDuration(250).start();
+        if (lensSelectorLayout != null) {
+            lensSelectorLayout.animate().alpha(targetAlpha).setDuration(250).start();
+        }
+        if (leftPrefsBar != null) {
+            leftPrefsBar.animate().alpha(targetAlpha).setDuration(250).start();
+        }
         
         new Handler().postDelayed(new Runnable() {
             @Override
@@ -1424,6 +1550,12 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
                 topHud.setVisibility(visibility);
                 bottomPanel.setVisibility(visibility);
                 resFpsPill.setVisibility(visibility);
+                if (lensSelectorLayout != null) {
+                    lensSelectorLayout.setVisibility(visibility);
+                }
+                if (leftPrefsBar != null) {
+                    leftPrefsBar.setVisibility(visibility);
+                }
             }
         }, 250);
     }
@@ -1565,30 +1697,49 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
     // ── Settings Dialog ──
     private void showSettingsDialog() {
         final FrameLayout overlay = new FrameLayout(this);
-        overlay.setBackgroundColor(Color.parseColor("#CC000000"));
+        overlay.setBackgroundColor(Color.parseColor("#00000000")); // Transparent overlay to see camera underneath
         overlay.setClickable(true);
         overlay.setFocusable(true);
 
         android.widget.ScrollView scrollView = new android.widget.ScrollView(this);
         scrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         scrollView.setVerticalScrollBarEnabled(false);
+        scrollView.setClickable(true);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dpToPx(24), dpToPx(20), dpToPx(24), dpToPx(24));
         card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setClickable(true);
+        card.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Prevent click through to dismiss
+            }
+        });
+
+        // Dismiss when tapping outside the settings drawer
+        overlay.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+                rootLayout.removeView(overlay);
+            }
+        });
 
         GradientDrawable cardBg = new GradientDrawable();
-        cardBg.setColor(Color.parseColor(COLOR_SURFACE));
+        cardBg.setColor(Color.parseColor("#D91C1C1E")); // Translucent glassmorphism 85% opacity
         cardBg.setCornerRadius(dpToPx(RADIUS_XL));
+        cardBg.setStroke(dpToPx(1), Color.parseColor("#26FFFFFF")); // subtle white border
         card.setBackground(cardBg);
 
         scrollView.addView(card, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         FrameLayout.LayoutParams cardParams = new FrameLayout.LayoutParams(
-                dpToPx(340), ViewGroup.LayoutParams.WRAP_CONTENT);
-        cardParams.gravity = Gravity.CENTER;
+                dpToPx(340), ViewGroup.LayoutParams.MATCH_PARENT);
+        cardParams.gravity = Gravity.END;
+        cardParams.setMargins(dpToPx(12), dpToPx(12), dpToPx(12), dpToPx(12));
         overlay.addView(scrollView, cardParams);
 
         View dragPill = new View(this);
@@ -1901,6 +2052,224 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
         faceAfSwitch.setPadding(0, dpToPx(8), 0, dpToPx(8));
         prefsBox.addView(faceAfSwitch);
 
+        // Zoom SeekBar Row
+        LinearLayout zoomRow = new LinearLayout(this);
+        zoomRow.setOrientation(LinearLayout.HORIZONTAL);
+        zoomRow.setGravity(Gravity.CENTER_VERTICAL);
+        zoomRow.setPadding(0, dpToPx(6), 0, dpToPx(6));
+        
+        TextView zoomLabelText = new TextView(this);
+        zoomLabelText.setText("Zoom Factor");
+        zoomLabelText.setTextColor(Color.WHITE);
+        zoomLabelText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        zoomRow.addView(zoomLabelText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f));
+
+        final TextView zoomValText = new TextView(this);
+        float currentZoom = (cameraStreamer != null) ? cameraStreamer.getZoomFactor() : 1.0f;
+        zoomValText.setText(String.format(Locale.US, "%.1fx", currentZoom));
+        zoomValText.setTextColor(Color.parseColor(COLOR_ACCENT));
+        zoomValText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        zoomRow.addView(zoomValText, new LinearLayout.LayoutParams(dpToPx(45), ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        final android.widget.SeekBar zoomSeekBar = new android.widget.SeekBar(this);
+        float maxZoomVal = (cameraStreamer != null) ? cameraStreamer.getMaxZoom() : 8.0f;
+        if (maxZoomVal < 1.1f) maxZoomVal = 8.0f;
+        final float finalMaxZoom = maxZoomVal;
+        zoomSeekBar.setMax(100);
+        int zoomProgress = (int) (((currentZoom - 1.0f) / (finalMaxZoom - 1.0f)) * 100);
+        zoomSeekBar.setProgress(zoomProgress);
+        zoomSeekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                float zoom = 1.0f + ((float) progress / 100.0f) * (finalMaxZoom - 1.0f);
+                zoomValText.setText(String.format(Locale.US, "%.1fx", zoom));
+                if (cameraStreamer != null) {
+                    cameraStreamer.setZoomFactor(zoom);
+                }
+            }
+            @Override
+            public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override
+            public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        });
+        zoomRow.addView(zoomSeekBar, new LinearLayout.LayoutParams(dpToPx(120), ViewGroup.LayoutParams.WRAP_CONTENT));
+        prefsBox.addView(zoomRow);
+
+        // Exposure SeekBar Row
+        LinearLayout expRow = new LinearLayout(this);
+        expRow.setOrientation(LinearLayout.HORIZONTAL);
+        expRow.setGravity(Gravity.CENTER_VERTICAL);
+        expRow.setPadding(0, dpToPx(6), 0, dpToPx(6));
+        
+        TextView expLabelText = new TextView(this);
+        expLabelText.setText("Exposure");
+        expLabelText.setTextColor(Color.WHITE);
+        expLabelText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        expRow.addView(expLabelText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f));
+
+        final TextView expValText = new TextView(this);
+        int currentExp = (cameraStreamer != null) ? cameraStreamer.getExposureCompensation() : 0;
+        expValText.setText(String.valueOf(currentExp));
+        expValText.setTextColor(Color.parseColor(COLOR_ACCENT));
+        expValText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        expRow.addView(expValText, new LinearLayout.LayoutParams(dpToPx(45), ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        final android.widget.SeekBar expSeekBar = new android.widget.SeekBar(this);
+        final int minExp = (cameraStreamer != null) ? cameraStreamer.getMinExposure() : -6;
+        final int maxExp = (cameraStreamer != null) ? cameraStreamer.getMaxExposure() : 6;
+        int expRange = maxExp - minExp;
+        if (expRange <= 0) expRange = 12;
+        expSeekBar.setMax(expRange);
+        expSeekBar.setProgress(currentExp - minExp);
+        expSeekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                int exp = minExp + progress;
+                expValText.setText((exp > 0 ? "+" : "") + exp);
+                if (cameraStreamer != null) {
+                    cameraStreamer.setExposureCompensation(exp);
+                }
+            }
+            @Override
+            public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override
+            public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        });
+        expRow.addView(expSeekBar, new LinearLayout.LayoutParams(dpToPx(120), ViewGroup.LayoutParams.WRAP_CONTENT));
+        prefsBox.addView(expRow);
+
+        // Manual Focus Toggle Row
+        final androidx.appcompat.widget.SwitchCompat focusModeSwitch = new androidx.appcompat.widget.SwitchCompat(this);
+        focusModeSwitch.setText("Manual Focus");
+        focusModeSwitch.setTextColor(Color.WHITE);
+        int currentFocusMode = (cameraStreamer != null) ? cameraStreamer.getFocusMode() : 0;
+        focusModeSwitch.setChecked(currentFocusMode == 1);
+        focusModeSwitch.setPadding(0, dpToPx(8), 0, dpToPx(8));
+        prefsBox.addView(focusModeSwitch);
+
+        // Focus Distance Row
+        final LinearLayout fdRow = new LinearLayout(this);
+        fdRow.setOrientation(LinearLayout.HORIZONTAL);
+        fdRow.setGravity(Gravity.CENTER_VERTICAL);
+        fdRow.setPadding(0, dpToPx(6), 0, dpToPx(6));
+        fdRow.setVisibility(currentFocusMode == 1 ? View.VISIBLE : View.GONE);
+        
+        TextView fdLabelText = new TextView(this);
+        fdLabelText.setText("Focus Distance");
+        fdLabelText.setTextColor(Color.WHITE);
+        fdLabelText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        fdRow.addView(fdLabelText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f));
+
+        final TextView fdValText = new TextView(this);
+        float currentFd = (cameraStreamer != null) ? cameraStreamer.getManualFocusDistance() : 0.0f;
+        fdValText.setText(String.format(Locale.US, "%.2f", currentFd));
+        fdValText.setTextColor(Color.parseColor(COLOR_ACCENT));
+        fdValText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        fdRow.addView(fdValText, new LinearLayout.LayoutParams(dpToPx(45), ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        final android.widget.SeekBar fdSeekBar = new android.widget.SeekBar(this);
+        fdSeekBar.setMax(100);
+        fdSeekBar.setProgress((int) (currentFd * 100));
+        fdSeekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                float fd = (float) progress / 100.0f;
+                fdValText.setText(String.format(Locale.US, "%.2f", fd));
+                if (cameraStreamer != null) {
+                    cameraStreamer.setManualFocusDistance(fd);
+                }
+            }
+            @Override
+            public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override
+            public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        });
+        fdRow.addView(fdSeekBar, new LinearLayout.LayoutParams(dpToPx(120), ViewGroup.LayoutParams.WRAP_CONTENT));
+        prefsBox.addView(fdRow);
+
+        focusModeSwitch.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(android.widget.CompoundButton buttonView, boolean isChecked) {
+                int mode = isChecked ? 1 : 0;
+                fdRow.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+                if (cameraStreamer != null) {
+                    cameraStreamer.setFocusMode(mode);
+                }
+            }
+        });
+
+        // AWB Mode Spinner Row
+        LinearLayout awbRow = new LinearLayout(this);
+        awbRow.setOrientation(LinearLayout.HORIZONTAL);
+        awbRow.setGravity(Gravity.CENTER_VERTICAL);
+        awbRow.setPadding(0, dpToPx(6), 0, dpToPx(6));
+        
+        TextView awbLabelText = new TextView(this);
+        awbLabelText.setText("White Balance");
+        awbLabelText.setTextColor(Color.WHITE);
+        awbLabelText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        awbRow.addView(awbLabelText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        final android.widget.Spinner awbSpinner = new android.widget.Spinner(this);
+        final String[] awbOptions = {"Auto", "Incandescent", "Fluorescent", "Warm Fluor.", "Daylight", "Cloudy", "Twilight", "Shade"};
+        final int[] awbValues = {1, 2, 3, 4, 5, 6, 7, 8};
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(this, 
+            android.R.layout.simple_spinner_item, awbOptions) {
+            @NonNull
+            @Override
+            public View getView(int position, View convertView, @NonNull ViewGroup parent) {
+                View v = super.getView(position, convertView, parent);
+                if (v instanceof TextView) {
+                    ((TextView) v).setTextColor(Color.WHITE);
+                    ((TextView) v).setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+                }
+                return v;
+            }
+        };
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        awbSpinner.setAdapter(adapter);
+        
+        int currentAwb = (cameraStreamer != null) ? cameraStreamer.getAwbMode() : 1;
+        int awbSel = 0;
+        for (int i = 0; i < awbValues.length; i++) {
+            if (awbValues[i] == currentAwb) {
+                awbSel = i;
+                break;
+            }
+        }
+        awbSpinner.setSelection(awbSel);
+        awbSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                int awbModeVal = awbValues[position];
+                if (cameraStreamer != null) {
+                    cameraStreamer.setAwbMode(awbModeVal);
+                }
+            }
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+        awbRow.addView(awbSpinner, new LinearLayout.LayoutParams(dpToPx(130), ViewGroup.LayoutParams.WRAP_CONTENT));
+        prefsBox.addView(awbRow);
+
+        // Video Stabilization Switch
+        final androidx.appcompat.widget.SwitchCompat stabSwitch = new androidx.appcompat.widget.SwitchCompat(this);
+        stabSwitch.setText("Video Stabilization");
+        stabSwitch.setTextColor(Color.WHITE);
+        boolean currentStab = (cameraStreamer != null) ? cameraStreamer.getStabilizationEnabled() : true;
+        stabSwitch.setChecked(currentStab);
+        stabSwitch.setPadding(0, dpToPx(8), 0, dpToPx(8));
+        prefsBox.addView(stabSwitch);
+        
+        stabSwitch.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(android.widget.CompoundButton buttonView, boolean isChecked) {
+                if (cameraStreamer != null) {
+                    cameraStreamer.setStabilizationEnabled(isChecked);
+                }
+            }
+        });
+
         card.addView(prefsBox, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -2087,9 +2456,9 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
 
                 int relativeRotation;
                 if (rotation == Surface.ROTATION_90) {
-                    relativeRotation = (activeFacing == CameraCharacteristics.LENS_FACING_FRONT) ? 90 : 270;
+                    relativeRotation = 270;
                 } else if (rotation == Surface.ROTATION_270) {
-                    relativeRotation = (activeFacing == CameraCharacteristics.LENS_FACING_FRONT) ? 270 : 90;
+                    relativeRotation = 90;
                 } else {
                     int deviceRotationDegrees = 0;
                     switch (rotation) {
@@ -2118,11 +2487,16 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
                 float bufferWidth = swapped ? videoHeight : videoWidth;
                 float bufferHeight = swapped ? videoWidth : videoHeight;
 
-                float scaleWidth = (float) viewWidth / bufferWidth;
-                float scaleHeight = (float) viewHeight / bufferHeight;
-                float scale = Math.max(scaleWidth, scaleHeight);
+                float rotatedW = swapped ? bufferHeight : bufferWidth;
+                float rotatedH = swapped ? bufferWidth : bufferHeight;
 
-                matrix.postScale(scale * (float) videoWidth / viewWidth, scale * (float) videoHeight / viewHeight);
+                float scaleWidth = (float) viewWidth / rotatedW;
+                float scaleHeight = (float) viewHeight / rotatedH;
+                float scale = Math.min(scaleWidth, scaleHeight);
+
+                float scaleX = scale * rotatedW / (swapped ? viewHeight : viewWidth);
+                float scaleY = scale * rotatedH / (swapped ? viewWidth : viewHeight);
+                matrix.postScale(scaleX, scaleY);
 
                 boolean flipHorizontal = false;
                 boolean flipVertical = false;
@@ -2201,6 +2575,34 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
     private String getWifiIpAddress() {
         try {
             List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+            // First pass: Prioritize wlan0 or wlan interfaces which represent Wi-Fi
+            for (NetworkInterface intf : interfaces) {
+                String name = intf.getName().toLowerCase();
+                if (name.contains("wlan")) {
+                    List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
+                    for (InetAddress addr : addrs) {
+                        if (!addr.isLoopbackAddress() && addr instanceof Inet4Address) {
+                            return addr.getHostAddress();
+                        }
+                    }
+                }
+            }
+
+            // Second pass: fallback to any active non-loopback IPv4 interface, skipping mobile data
+            for (NetworkInterface intf : interfaces) {
+                String name = intf.getName().toLowerCase();
+                if (name.contains("rmnet") || name.contains("ccmni") || name.contains("ppp")) {
+                    continue;
+                }
+                List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
+                for (InetAddress addr : addrs) {
+                    if (!addr.isLoopbackAddress() && addr instanceof Inet4Address) {
+                        return addr.getHostAddress();
+                    }
+                }
+            }
+
+            // Third pass: absolute fallback to any IPv4 address
             for (NetworkInterface intf : interfaces) {
                 List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
                 for (InetAddress addr : addrs) {
@@ -2309,6 +2711,36 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
                             boolean locked = cameraStreamer.isAutofocusLocked();
                             showToast(locked ? "Focus locked" : "Continuous AF");
                         }
+                    } else if (key.equals("zoom")) {
+                        float zoom = Float.parseFloat(val);
+                        if (cameraStreamer != null) {
+                            cameraStreamer.setZoomFactor(zoom);
+                        }
+                    } else if (key.equals("exposure")) {
+                        int exp = Integer.parseInt(val);
+                        if (cameraStreamer != null) {
+                            cameraStreamer.setExposureCompensation(exp);
+                        }
+                    } else if (key.equals("focus_mode")) {
+                        int mode = Integer.parseInt(val);
+                        if (cameraStreamer != null) {
+                            cameraStreamer.setFocusMode(mode);
+                        }
+                    } else if (key.equals("focus_distance")) {
+                        float dist = Float.parseFloat(val);
+                        if (cameraStreamer != null) {
+                            cameraStreamer.setManualFocusDistance(dist);
+                        }
+                    } else if (key.equals("awb_mode")) {
+                        int awb = Integer.parseInt(val);
+                        if (cameraStreamer != null) {
+                            cameraStreamer.setAwbMode(awb);
+                        }
+                    } else if (key.equals("stabilization")) {
+                        boolean stab = Boolean.parseBoolean(val);
+                        if (cameraStreamer != null) {
+                            cameraStreamer.setStabilizationEnabled(stab);
+                        }
                     } else if (key.equals("port")) {
                         int newPort = Integer.parseInt(val);
                         int oldPort = settingsManager.getPort();
@@ -2325,5 +2757,341 @@ public class MainActivity extends AppCompatActivity implements CameraStreamer.Pr
                 }
             }
         });
+    }
+
+    private static class CameraInfo {
+        final String id;
+        final int facing;
+        final float zoomRatio;
+
+        CameraInfo(String id, int facing, float zoomRatio) {
+            this.id = id;
+            this.facing = facing;
+            this.zoomRatio = zoomRatio;
+        }
+    }
+
+    private void setupLensSelector() {
+        if (lensSelectorLayout == null) {
+            lensSelectorLayout = new LinearLayout(this);
+            lensSelectorLayout.setOrientation(LinearLayout.HORIZONTAL);
+            lensSelectorLayout.setGravity(Gravity.CENTER);
+
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            lp.bottomMargin = dpToPx(205);
+            rootLayout.addView(lensSelectorLayout, lp);
+        }
+
+        lensSelectorLayout.removeAllViews();
+
+        CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        try {
+            String[] cameraIds = manager.getCameraIdList();
+            int activeFacing = CameraCharacteristics.LENS_FACING_BACK;
+            if (cameraStreamer != null) {
+                activeFacing = cameraStreamer.getLensFacing();
+            }
+
+            List<CameraInfo> cameras = new ArrayList<>();
+            String primaryId = null;
+            float primaryFovFactor = 1.0f;
+
+            for (String id : cameraIds) {
+                CameraCharacteristics chars = manager.getCameraCharacteristics(id);
+                Integer facing = chars.get(CameraCharacteristics.LENS_FACING);
+                if (facing != null && facing == activeFacing) {
+                    if (primaryId == null) {
+                        primaryId = id;
+                        float[] focalLengths = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+                        android.util.SizeF sensorSize = chars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
+                        if (focalLengths != null && focalLengths.length > 0 && sensorSize != null) {
+                            primaryFovFactor = sensorSize.getWidth() / focalLengths[0];
+                        }
+                    }
+                }
+            }
+
+            for (String id : cameraIds) {
+                CameraCharacteristics chars = manager.getCameraCharacteristics(id);
+                Integer facing = chars.get(CameraCharacteristics.LENS_FACING);
+                if (facing != null && facing == activeFacing) {
+                    float zoomRatio = 1.0f;
+                    float[] focalLengths = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+                    android.util.SizeF sensorSize = chars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
+                    if (focalLengths != null && focalLengths.length > 0 && sensorSize != null) {
+                        float fovFactor = sensorSize.getWidth() / focalLengths[0];
+                        zoomRatio = primaryFovFactor / fovFactor;
+                    }
+                    cameras.add(new CameraInfo(id, facing, zoomRatio));
+                }
+            }
+
+            Collections.sort(cameras, (c1, c2) -> Float.compare(c1.zoomRatio, c2.zoomRatio));
+
+            String currentId = (cameraStreamer != null) ? cameraStreamer.getCurrentCameraId() : null;
+            if (currentId == null && !cameras.isEmpty()) {
+                currentId = cameras.get(0).id;
+            }
+
+            for (CameraInfo info : cameras) {
+                TextView dialBtn = createLensDialButton(info, info.id.equals(currentId));
+                lensSelectorLayout.addView(dialBtn);
+
+                View spacer = new View(this);
+                LinearLayout.LayoutParams spacerLp = new LinearLayout.LayoutParams(dpToPx(12), 1);
+                lensSelectorLayout.addView(spacer, spacerLp);
+            }
+
+            if (lensSelectorLayout.getChildCount() > 0) {
+                lensSelectorLayout.removeViewAt(lensSelectorLayout.getChildCount() - 1);
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up lens selector", e);
+        }
+    }
+
+    private TextView createLensDialButton(final CameraInfo info, boolean isSelected) {
+        TextView tv = new TextView(this);
+        tv.setGravity(Gravity.CENTER);
+
+        String label;
+        if (Math.abs(info.zoomRatio - 1.0f) < 0.15f) {
+            label = "1.0";
+        } else if (info.zoomRatio < 0.85f) {
+            label = String.format(Locale.US, "%.1f", info.zoomRatio);
+            if (label.startsWith("0.")) {
+                label = label.substring(1);
+            }
+        } else {
+            label = String.format(Locale.US, "%.1f", info.zoomRatio);
+            if (label.endsWith(".0")) {
+                label = label.substring(0, label.length() - 2);
+            }
+        }
+
+        tv.setText(label);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, isSelected ? 12 : 11);
+        tv.setTypeface(Typeface.create("sans-serif-medium", isSelected ? Typeface.BOLD : Typeface.NORMAL));
+
+        int size = dpToPx(isSelected ? 38 : 34);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
+        tv.setLayoutParams(lp);
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.OVAL);
+
+        if (isSelected) {
+            bg.setColor(Color.parseColor(COLOR_ACCENT));
+            tv.setTextColor(Color.BLACK);
+            bg.setStroke(dpToPx(1.5f), Color.parseColor(COLOR_ACCENT));
+        } else {
+            bg.setColor(Color.parseColor("#80000000"));
+            tv.setTextColor(Color.parseColor("#CCFFFFFF"));
+            bg.setStroke(dpToPx(1.0f), Color.parseColor("#33FFFFFF"));
+        }
+        tv.setBackground(bg);
+
+        final String finalLabel = label;
+        tv.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+                if (cameraStreamer != null) {
+                    cameraStreamer.selectCamera(info.id);
+                    setupLensSelector();
+                    updateTorchButtonState();
+                    showToast("Switched to camera " + info.id + " (" + finalLabel + "x)");
+                }
+            }
+        });
+
+        return tv;
+    }
+
+    private void styleHudButton(TextView btn, boolean isActive, String activeColor) {
+        if (btn == null) return;
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.OVAL);
+
+        if (isActive) {
+            bg.setColor(Color.parseColor(activeColor));
+            btn.setTextColor(Color.BLACK);
+            bg.setStroke(dpToPx(1.5f), Color.parseColor(activeColor));
+        } else {
+            bg.setColor(Color.parseColor("#80000000"));
+            btn.setTextColor(Color.WHITE);
+            bg.setStroke(dpToPx(1.0f), Color.parseColor("#33FFFFFF"));
+        }
+        btn.setBackground(bg);
+    }
+
+    private void updatePrefsHudButtons() {
+        if (settingsManager == null) return;
+
+        styleHudButton(toggleFaceAfBtn, settingsManager.getFaceAutoFocus(), COLOR_ACCENT);
+
+        boolean stab = (cameraStreamer != null) ? cameraStreamer.getStabilizationEnabled() : settingsManager.getStabilizationEnabled();
+        styleHudButton(toggleStabBtn, stab, COLOR_ACCENT);
+
+        styleHudButton(toggleKeepScreenOnBtn, settingsManager.getKeepScreenOn(), COLOR_ACCENT);
+        styleHudButton(toggleFlipHBtn, settingsManager.getFlipHorizontal(), COLOR_ACCENT);
+        styleHudButton(toggleFlipVBtn, settingsManager.getFlipVertical(), COLOR_ACCENT);
+
+        if (cycleBitrateBtn != null) {
+            int bitrate = settingsManager.getBitrate();
+            String label = (bitrate / 1000000) + "M";
+            cycleBitrateBtn.setText(label);
+            styleHudButton(cycleBitrateBtn, false, COLOR_ACCENT);
+        }
+    }
+
+    private void cycleBitrate() {
+        if (settingsManager == null) return;
+        int currentBitrate = settingsManager.getBitrate();
+        int[] bitrates = {1000000, 2000000, 3000000, 5000000, 10000000, 15000000, 20000000, 30000000};
+        int nextIndex = 2; // Default 3M
+        for (int i = 0; i < bitrates.length; i++) {
+            if (bitrates[i] == currentBitrate) {
+                nextIndex = (i + 1) % bitrates.length;
+                break;
+            }
+        }
+        int nextBitrate = bitrates[nextIndex];
+        settingsManager.setBitrate(nextBitrate);
+        showToast("Bitrate: " + (nextBitrate / 1000000) + " Mbps");
+        updatePrefsHudButtons();
+    }
+
+    private void initializeLeftPrefsBar() {
+        leftPrefsBar = new LinearLayout(this);
+        leftPrefsBar.setOrientation(LinearLayout.VERTICAL);
+        leftPrefsBar.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        FrameLayout.LayoutParams leftParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        leftParams.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
+        leftParams.leftMargin = dpToPx(16);
+        rootLayout.addView(leftPrefsBar, leftParams);
+
+        int btnSize = dpToPx(34);
+        LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(btnSize, btnSize);
+        btnLp.setMargins(0, dpToPx(8), 0, dpToPx(8));
+
+        // 1. Face AF Toggle
+        toggleFaceAfBtn = new TextView(this);
+        toggleFaceAfBtn.setText("☺");
+        toggleFaceAfBtn.setGravity(Gravity.CENTER);
+        toggleFaceAfBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        toggleFaceAfBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+                boolean current = settingsManager.getFaceAutoFocus();
+                settingsManager.setFaceAutoFocus(!current);
+                if (cameraStreamer != null) {
+                    cameraStreamer.setFaceAutoFocusEnabled(!current);
+                }
+                showToast("Face AF: " + (!current ? "ON" : "OFF"));
+                updatePrefsHudButtons();
+            }
+        });
+        leftPrefsBar.addView(toggleFaceAfBtn, btnLp);
+
+        // 2. Video Stabilization Toggle
+        toggleStabBtn = new TextView(this);
+        toggleStabBtn.setText("≈");
+        toggleStabBtn.setGravity(Gravity.CENTER);
+        toggleStabBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        toggleStabBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+                boolean current = (cameraStreamer != null) ? cameraStreamer.getStabilizationEnabled() : settingsManager.getStabilizationEnabled();
+                boolean next = !current;
+                settingsManager.setStabilizationEnabled(next);
+                if (cameraStreamer != null) {
+                    cameraStreamer.setStabilizationEnabled(next);
+                }
+                showToast("Stabilization: " + (next ? "ON" : "OFF"));
+                updatePrefsHudButtons();
+            }
+        });
+        leftPrefsBar.addView(toggleStabBtn, btnLp);
+
+        // 3. Keep Screen On Toggle
+        toggleKeepScreenOnBtn = new TextView(this);
+        toggleKeepScreenOnBtn.setText("☼");
+        toggleKeepScreenOnBtn.setGravity(Gravity.CENTER);
+        toggleKeepScreenOnBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        toggleKeepScreenOnBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+                boolean current = settingsManager.getKeepScreenOn();
+                boolean next = !current;
+                settingsManager.setKeepScreenOn(next);
+                applyScreenOnPolicy();
+                showToast("Keep Screen On: " + (next ? "ON" : "OFF"));
+                updatePrefsHudButtons();
+            }
+        });
+        leftPrefsBar.addView(toggleKeepScreenOnBtn, btnLp);
+
+        // 4. Flip H Toggle
+        toggleFlipHBtn = new TextView(this);
+        toggleFlipHBtn.setText("↔");
+        toggleFlipHBtn.setGravity(Gravity.CENTER);
+        toggleFlipHBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        toggleFlipHBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+                boolean current = settingsManager.getFlipHorizontal();
+                boolean next = !current;
+                settingsManager.setFlipHorizontal(next);
+                adjustAspectRatio(currentVideoWidth, currentVideoHeight);
+                showToast("Flip Horizontal: " + (next ? "ON" : "OFF"));
+                updatePrefsHudButtons();
+            }
+        });
+        leftPrefsBar.addView(toggleFlipHBtn, btnLp);
+
+        // 5. Flip V Toggle
+        toggleFlipVBtn = new TextView(this);
+        toggleFlipVBtn.setText("↕");
+        toggleFlipVBtn.setGravity(Gravity.CENTER);
+        toggleFlipVBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        toggleFlipVBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+                boolean current = settingsManager.getFlipVertical();
+                boolean next = !current;
+                settingsManager.setFlipVertical(next);
+                adjustAspectRatio(currentVideoWidth, currentVideoHeight);
+                showToast("Flip Vertical: " + (next ? "ON" : "OFF"));
+                updatePrefsHudButtons();
+            }
+        });
+        leftPrefsBar.addView(toggleFlipVBtn, btnLp);
+
+        // 6. Bitrate Cycler
+        cycleBitrateBtn = new TextView(this);
+        cycleBitrateBtn.setGravity(Gravity.CENTER);
+        cycleBitrateBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        cycleBitrateBtn.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        cycleBitrateBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+                cycleBitrate();
+            }
+        });
+        leftPrefsBar.addView(cycleBitrateBtn, btnLp);
+
+        updatePrefsHudButtons();
     }
 }

@@ -272,6 +272,10 @@ public class SocketServer {
                     }
                     camSb.append("]");
 
+                    float maxZoom = (activity.cameraStreamer != null) ? activity.cameraStreamer.getMaxZoom() : 1.0f;
+                    int minExp = (activity.cameraStreamer != null) ? activity.cameraStreamer.getMinExposure() : 0;
+                    int maxExp = (activity.cameraStreamer != null) ? activity.cameraStreamer.getMaxExposure() : 0;
+
                     String body = "{" +
                             "\"battery\":" + level + "," +
                             "\"isStreaming\":" + streaming + "," +
@@ -284,6 +288,15 @@ public class SocketServer {
                             "\"resolution\":\"" + settings.getResolution() + "\"," +
                             "\"bitrate\":" + settings.getBitrate() + "," +
                             "\"framerate\":" + settings.getFramerate() + "," +
+                            "\"zoomFactor\":" + settings.getZoomFactor() + "," +
+                            "\"maxZoom\":" + maxZoom + "," +
+                            "\"exposureCompensation\":" + settings.getExposureCompensation() + "," +
+                            "\"minExposure\":" + minExp + "," +
+                            "\"maxExposure\":" + maxExp + "," +
+                            "\"focusMode\":" + settings.getFocusMode() + "," +
+                            "\"manualFocusDistance\":" + settings.getManualFocusDistance() + "," +
+                            "\"awbMode\":" + settings.getAwbMode() + "," +
+                            "\"stabilizationEnabled\":" + settings.getStabilizationEnabled() + "," +
                             "\"availableCameras\":" + camSb.toString() + "," +
                             "\"availableResolutions\":" + resSb.toString() +
                             "}";
@@ -599,6 +612,12 @@ public class SocketServer {
         "  transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:999;\n" +
         "}\n" +
         ".toast.show{transform:translateY(0);opacity:1}\n" +
+        "input[type=range]{-webkit-appearance:none;width:100%;background:transparent;margin:.4rem 0}\n" +
+        "input[type=range]:focus{outline:none}\n" +
+        "input[type=range]::-webkit-slider-runnable-track{width:100%;height:5px;cursor:pointer;background:var(--surface2);border-radius:4px;border:1px solid var(--border)}\n" +
+        "input[type=range]::-webkit-slider-thumb{height:15px;width:15px;border-radius:50%;background:var(--accent-l);cursor:pointer;-webkit-appearance:none;margin-top:-6px;border:1px solid var(--accent)}\n" +
+        "input[type=range]:focus::-webkit-slider-runnable-track{background:var(--surface2)}\n" +
+        ".range-val{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--accent-l)}\n" +
         "@media(max-width:680px){\n" +
         "  .main{grid-template-columns:1fr;grid-template-rows:55vw 1fr;height:auto}\n" +
         "  .preview{border-right:none;border-bottom:1px solid var(--border)}\n" +
@@ -638,10 +657,21 @@ public class SocketServer {
         "        <button id='tam' class='btn'>&#128274; Lock Focus</button>\n" +
         "      </div>\n" +
         "      <div class='row' style='margin-top:.5rem'><span class='lbl'>Focus Mode</span><span id='fl' class='val' style='color:var(--green)'>AUTO-C</span></div>\n" +
+        "      <div class='fg' style='margin-top:.5rem'>\n" +
+        "        <label class='fl' for='fmd'>Focus Method</label>\n" +
+        "        <select id='fmd'>\n" +
+        "          <option value='0'>Auto Focus</option>\n" +
+        "          <option value='1'>Manual Focus</option>\n" +
+        "        </select>\n" +
+        "      </div>\n" +
+        "      <div class='fg' id='fd_container' style='display:none'>\n" +
+        "        <div class='row'><label class='fl'>Focus Distance</label><span id='fd_val' class='range-val'>0.0</span></div>\n" +
+        "        <input type='range' id='fdi' min='0.0' max='1.0' step='0.01' value='0.0'>\n" +
+        "      </div>\n" +
         "    </div>\n" +
         "    <div class='section'>\n" +
         "      <div class='sec-title'>Camera &amp; Stream</div>\n" +
-        "      <div class='fg'><label class='fl' for='cs'>Sensor</label><select id='cs'></select></div>\n" +
+        "      <div class='fg'><label class='fl'>Camera Sensor</label><div id='cam_buttons' class='btn-r' style='flex-wrap:wrap;gap:0.4rem'></div></div>\n" +
         "      <div class='fg'><label class='fl' for='rs'>Resolution</label><select id='rs'></select></div>\n" +
         "      <div class='fg'><label class='fl' for='fs'>Framerate</label>\n" +
         "        <select id='fs'>\n" +
@@ -665,6 +695,34 @@ public class SocketServer {
         "      </div>\n" +
         "    </div>\n" +
         "    <div class='section'>\n" +
+        "      <div class='sec-title'>Manual Camera Controls</div>\n" +
+        "      <div class='fg'>\n" +
+        "        <div class='row'><label class='fl'>Zoom Factor</label><span id='zm_val' class='range-val'>1.0x</span></div>\n" +
+        "        <input type='range' id='zmi' min='1.0' max='8.0' step='0.1' value='1.0'>\n" +
+        "      </div>\n" +
+        "      <div class='fg'>\n" +
+        "        <div class='row'><label class='fl'>Exposure Compensation</label><span id='ex_val' class='range-val'>0</span></div>\n" +
+        "        <input type='range' id='exi' min='-6' max='6' step='1' value='0'>\n" +
+        "      </div>\n" +
+        "      <div class='fg'>\n" +
+        "        <label class='fl' for='wbs'>White Balance</label>\n" +
+        "        <select id='wbs'>\n" +
+        "          <option value='1'>Auto</option>\n" +
+        "          <option value='2'>Incandescent</option>\n" +
+        "          <option value='3'>Fluorescent</option>\n" +
+        "          <option value='4'>Warm Fluorescent</option>\n" +
+        "          <option value='5'>Daylight</option>\n" +
+        "          <option value='6'>Cloudy</option>\n" +
+        "          <option value='7'>Twilight</option>\n" +
+        "          <option value='8'>Shade</option>\n" +
+        "        </select>\n" +
+        "      </div>\n" +
+        "      <div class='tog-r'>\n" +
+        "        <span class='tog-lbl'>Video Stabilization</span>\n" +
+        "        <label class='sw'><input type='checkbox' id='tst'><span class='sl'></span></label>\n" +
+        "      </div>\n" +
+        "    </div>\n" +
+        "    <div class='section'>\n" +
         "      <div class='sec-title'>Preferences</div>\n" +
         "      <div class='tog-r'><span class='tog-lbl'>Face Auto-Focus</span><label class='sw'><input type='checkbox' id='tfa'><span class='sl'></span></label></div>\n" +
         "      <div class='tog-r'><span class='tog-lbl'>Keep Screen On</span><label class='sw'><input type='checkbox' id='tso'><span class='sl'></span></label></div>\n" +
@@ -682,7 +740,6 @@ public class SocketServer {
         "  try{await fetch('/api/set?key='+encodeURIComponent(k)+'&val='+encodeURIComponent(v));\n" +
         "  toast('\\u2713 '+k.replace(/_/g,' ').toUpperCase());fetchStatus();}catch(e){toast('Error')}\n" +
         "}\n" +
-        "T('cs').onchange=e=>api('camera',e.target.value);\n" +
         "T('rs').onchange=e=>api('resolution',e.target.value);\n" +
         "T('fs').onchange=e=>api('framerate',e.target.value);\n" +
         "T('bs').onchange=e=>api('bitrate',e.target.value);\n" +
@@ -692,6 +749,15 @@ public class SocketServer {
         "T('tfv').onchange=e=>api('flip_vertical',e.target.checked);\n" +
         "T('taf').onclick=()=>api('trigger_af','now');\n" +
         "T('tam').onclick=()=>api('toggle_af_mode','now');\n" +
+        "T('zmi').oninput=e=>{T('zm_val').textContent=parseFloat(e.target.value).toFixed(1)+'x';};\n" +
+        "T('zmi').onchange=e=>api('zoom',e.target.value);\n" +
+        "T('exi').oninput=e=>{const v=parseInt(e.target.value);T('ex_val').textContent=(v>0?'+':'')+v;};\n" +
+        "T('exi').onchange=e=>api('exposure',e.target.value);\n" +
+        "T('fmd').onchange=e=>{const v=parseInt(e.target.value);T('fd_container').style.display=v===1?'block':'none';api('focus_mode',e.target.value);};\n" +
+        "T('fdi').oninput=e=>{T('fd_val').textContent=parseFloat(e.target.value).toFixed(2);};\n" +
+        "T('fdi').onchange=e=>api('focus_distance',e.target.value);\n" +
+        "T('wbs').onchange=e=>api('awb_mode',e.target.value);\n" +
+        "T('tst').onchange=e=>api('stabilization',e.target.checked);\n" +
         "async function fetchStatus(){\n" +
         "  try{\n" +
         "    const r=await fetch('/api/status');if(!r.ok)return;\n" +
@@ -708,12 +774,37 @@ public class SocketServer {
         "    T('sfb').textContent=d.framerate+' FPS / '+(d.bitrate/1e6).toFixed(1)+' Mbps';\n" +
         "    const fl=T('fl');fl.textContent=d.isAutofocusLocked?'LOCKED':'AUTO-C';\n" +
         "    fl.style.color=d.isAutofocusLocked?'var(--amber)':'var(--green)';\n" +
+        "    T('zm_val').textContent=d.zoomFactor.toFixed(1)+'x';\n" +
+        "    T('zmi').value=d.zoomFactor;\n" +
+        "    T('zmi').max=d.maxZoom;\n" +
+        "    T('ex_val').textContent=(d.exposureCompensation>0?'+':'')+d.exposureCompensation;\n" +
+        "    T('exi').value=d.exposureCompensation;\n" +
+        "    T('exi').min=d.minExposure;\n" +
+        "    T('exi').max=d.maxExposure;\n" +
+        "    T('fmd').value=d.focusMode;\n" +
+        "    T('fd_container').style.display=d.focusMode===1?'block':'none';\n" +
+        "    T('fd_val').textContent=d.manualFocusDistance.toFixed(2);\n" +
+        "    T('fdi').value=d.manualFocusDistance;\n" +
+        "    T('wbs').value=d.awbMode;\n" +
+        "    T('tst').checked=d.stabilizationEnabled;\n" +
+        "    d.availableCameras.forEach(c=>{\n" +
+        "      const btn=T('cambtn_'+c.id);\n" +
+        "      if(btn){\n" +
+        "        if(c.id===d.activeCameraId)btn.classList.add('a');\n" +
+        "        else btn.classList.remove('a');\n" +
+        "      }\n" +
+        "    });\n" +
         "    if(!loaded){\n" +
         "      loaded=true;\n" +
-        "      const cs=T('cs');cs.innerHTML='';\n" +
-        "      d.availableCameras.forEach(c=>{const o=document.createElement('option');\n" +
-        "        o.value=c.id;o.textContent='Camera '+c.id+' ('+c.facing+')';\n" +
-        "        o.selected=c.id===d.activeCameraId;cs.appendChild(o);});\n" +
+        "      const cb=T('cam_buttons');cb.innerHTML='';\n" +
+        "      d.availableCameras.forEach(c=>{\n" +
+        "        const btn=document.createElement('button');\n" +
+        "        btn.id='cambtn_'+c.id;\n" +
+        "        btn.className='btn' + (c.id===d.activeCameraId?' a':'');\n" +
+        "        btn.innerHTML='Cam ' + c.id + ' (' + c.facing + ')';\n" +
+        "        btn.onclick=()=>{api('camera',c.id);Array.from(cb.children).forEach(b=>b.classList.remove('a'));btn.classList.add('a');};\n" +
+        "        cb.appendChild(btn);\n" +
+        "      });\n" +
         "      const rs=T('rs');rs.innerHTML='';\n" +
         "      d.availableResolutions.forEach(r=>{const o=document.createElement('option');\n" +
         "        o.value=r;o.textContent=r;o.selected=r===d.resolution;rs.appendChild(o);});\n" +

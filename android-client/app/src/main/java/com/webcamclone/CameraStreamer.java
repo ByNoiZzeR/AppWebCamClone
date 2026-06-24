@@ -66,6 +66,14 @@ public class CameraStreamer {
     private int targetWidth = 1280;
     private int targetHeight = 720;
 
+    // Advanced manual controls
+    private float zoomFactor = 1.0f;
+    private int exposureCompensation = 0;
+    private int focusMode = 0; // 0 = Auto-Continuous, 1 = Manual
+    private float manualFocusDistance = 0.0f;
+    private int awbMode = 1; // CONTROL_AWB_MODE_AUTO
+    private boolean stabilizationEnabled = true;
+
     public interface PreviewSurfaceProvider {
         Surface getPreviewSurface();
         void updateStatusText(String text);
@@ -83,6 +91,14 @@ public class CameraStreamer {
         int[] wxh = parseResolution(res);
         this.targetWidth = wxh[0];
         this.targetHeight = wxh[1];
+
+        // Load new settings
+        this.zoomFactor = settings.getZoomFactor();
+        this.exposureCompensation = settings.getExposureCompensation();
+        this.focusMode = settings.getFocusMode();
+        this.manualFocusDistance = settings.getManualFocusDistance();
+        this.awbMode = settings.getAwbMode();
+        this.stabilizationEnabled = settings.getStabilizationEnabled();
     }
 
     private int[] parseResolution(String res) {
@@ -239,6 +255,7 @@ public class CameraStreamer {
             }
 
             CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
+            activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
             StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             if (map == null) return;
 
@@ -250,50 +267,55 @@ public class CameraStreamer {
 
             boolean useHardwareEncoder = isStreamingToSocket && (currentFormat.equals("avc") || currentFormat.equals("hevc"));
 
-            // Always create the imageReader to support the web preview MJPEG stream
-            final long[] lastFrameTime = {0L};
-            imageReader = ImageReader.newInstance(selectedSize.getWidth(), selectedSize.getHeight(), ImageFormat.YUV_420_888, 2);
-            imageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
-                @Override
-                public void onImageAvailable(ImageReader reader) {
-                    Image image = reader.acquireLatestImage();
-                    if (image != null) {
-                        try {
-                            boolean needObsFrame = isStreamingToSocket && !useHardwareEncoder;
-                            boolean needWebPreview = socketServer.hasPreviewClients();
+            // Conditionally create the imageReader to avoid extra ISP load when not needed
+            boolean needImageReader = !useHardwareEncoder || socketServer.hasPreviewClients();
+            if (needImageReader) {
+                final long[] lastFrameTime = {0L};
+                imageReader = ImageReader.newInstance(selectedSize.getWidth(), selectedSize.getHeight(), ImageFormat.YUV_420_888, 2);
+                imageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
+                    @Override
+                    public void onImageAvailable(ImageReader reader) {
+                        Image image = reader.acquireLatestImage();
+                        if (image != null) {
+                            try {
+                                boolean needObsFrame = isStreamingToSocket && !useHardwareEncoder;
+                                boolean needWebPreview = socketServer.hasPreviewClients();
 
-                            if (needObsFrame || needWebPreview) {
-                                long now = System.currentTimeMillis();
-                                boolean shouldProcess = true;
-                                if (!needObsFrame) {
-                                    // Throttle web preview frame processing to ~12 FPS (80ms interval)
-                                    if (now - lastFrameTime[0] < 80) {
-                                        shouldProcess = false;
-                                    } else {
-                                        lastFrameTime[0] = now;
-                                    }
-                                }
-
-                                if (shouldProcess) {
-                                    byte[] jpegBytes = convertYuvToJpeg(image);
-                                    if (jpegBytes != null) {
-                                        if (needObsFrame) {
-                                            socketServer.sendVideoFrame(jpegBytes);
-                                        }
-                                        if (needWebPreview) {
-                                            socketServer.sendPreviewFrame(jpegBytes);
+                                if (needObsFrame || needWebPreview) {
+                                    long now = System.currentTimeMillis();
+                                    boolean shouldProcess = true;
+                                    if (!needObsFrame) {
+                                        // Throttle web preview frame processing to ~12 FPS (80ms interval)
+                                        if (now - lastFrameTime[0] < 80) {
+                                            shouldProcess = false;
+                                        } else {
+                                            lastFrameTime[0] = now;
                                         }
                                     }
+
+                                    if (shouldProcess) {
+                                        byte[] jpegBytes = convertYuvToJpeg(image);
+                                        if (jpegBytes != null) {
+                                            if (needObsFrame) {
+                                                socketServer.sendVideoFrame(jpegBytes);
+                                            }
+                                            if (needWebPreview) {
+                                                socketServer.sendPreviewFrame(jpegBytes);
+                                            }
+                                        }
+                                    }
                                 }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error processing frame", e);
+                            } finally {
+                                image.close();
                             }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error processing frame", e);
-                        } finally {
-                            image.close();
                         }
                     }
-                }
-            }, backgroundHandler);
+                }, backgroundHandler);
+            } else {
+                imageReader = null;
+            }
 
             if (useHardwareEncoder) {
                 setupHardwareEncoder(currentFormat, selectedSize.getWidth(), selectedSize.getHeight());
@@ -437,12 +459,8 @@ public class CameraStreamer {
                     if (cameraDevice == null) return;
                     captureSession = session;
                     try {
-                        if (isAutofocusLocked) {
-                            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
-                            captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
-                        } else {
-                            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
-                        }
+                        // Apply all camera settings (including Zoom, Focus, Exposure, AWB, Stabilization)
+                        applyCameraSettings();
 
                         // Configure face detection
                         try {
@@ -467,8 +485,8 @@ public class CameraStreamer {
                             captureBuilder.set(CaptureRequest.STATISTICS_FACE_DETECT_MODE, faceDetectMode);
                             Log.i(TAG, "Face detection statistics mode configured to: " + faceDetectMode);
 
-                            // Apply Face Priority Scene Mode if enabled
-                            if (!isAutofocusLocked) {
+                            // Apply Face Priority Scene Mode if enabled and focusMode is Auto
+                            if (focusMode == 0 && !isAutofocusLocked) {
                                 if (faceAutoFocusEnabled) {
                                     boolean facePrioritySupported = false;
                                     int[] sceneModes = characteristics.get(CameraCharacteristics.CONTROL_AVAILABLE_SCENE_MODES);
@@ -484,11 +502,7 @@ public class CameraStreamer {
                                         captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_USE_SCENE_MODE);
                                         captureBuilder.set(CaptureRequest.CONTROL_SCENE_MODE, CaptureRequest.CONTROL_SCENE_MODE_FACE_PRIORITY);
                                         Log.i(TAG, "Face priority scene mode enabled");
-                                    } else {
-                                        captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
                                     }
-                                } else {
-                                    captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
                                 }
                             }
                         } catch (Exception e) {
@@ -590,49 +604,51 @@ public class CameraStreamer {
         int vRowStride = planes[2].getRowStride();
         int vPixelStride = planes[2].getPixelStride();
 
-        // Thread-safe absolute index copy for Y plane
+        // 1. Copy Y Plane (bulk copy if pixel stride is 1)
         int pos = 0;
-        for (int r = 0; r < height; r++) {
-            int rowStart = r * yRowStride;
-            for (int c = 0; c < width; c++) {
-                int index = rowStart + c * yPixelStride;
-                if (index < yBuffer.limit()) {
-                    nv21[pos++] = yBuffer.get(index);
-                }
+        ByteBuffer yBuf = yBuffer.duplicate();
+        yBuf.clear();
+        if (yPixelStride == 1 && yRowStride == width) {
+            yBuf.get(nv21, 0, width * height);
+            pos = width * height;
+        } else {
+            for (int r = 0; r < height; r++) {
+                yBuf.position(r * yRowStride);
+                yBuf.get(nv21, pos, width);
+                pos += width;
             }
         }
 
-        // Thread-safe absolute index copy for VU plane (interleaved)
+        // 2. Interleave V and U (NV21 expects V-U-V-U...)
         int uvLimit = nv21.length;
+        ByteBuffer uBuf = uBuffer.duplicate();
+        ByteBuffer vBuf = vBuffer.duplicate();
+        uBuf.clear();
+        vBuf.clear();
+        
+        int uRemaining = uBuf.remaining();
+        int vRemaining = vBuf.remaining();
+        byte[] uBytes = new byte[uRemaining];
+        byte[] vBytes = new byte[vRemaining];
+        uBuf.get(uBytes);
+        vBuf.get(vBytes);
+
         for (int r = 0; r < height / 2; r++) {
+            int uRowStart = r * uRowStride;
+            int vRowStart = r * vRowStride;
             for (int c = 0; c < width / 2; c++) {
-                int vPos = r * vRowStride + c * vPixelStride;
-                int uPos = r * uRowStride + c * uPixelStride;
-                
-                byte vVal = 0;
-                byte uVal = 0;
-                
-                try {
-                    if (vPos >= 0 && vPos < vBuffer.limit()) {
-                        vVal = vBuffer.get(vPos);
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error reading V plane at vPos=" + vPos + ", limit=" + vBuffer.limit(), e);
+                int vIdx = vRowStart + c * vPixelStride;
+                int uIdx = uRowStart + c * uPixelStride;
+
+                if (vIdx >= 0 && vIdx < vRemaining && pos < uvLimit) {
+                    nv21[pos++] = vBytes[vIdx];
+                } else if (pos < uvLimit) {
+                    nv21[pos++] = 0;
                 }
-                
-                try {
-                    if (uPos >= 0 && uPos < uBuffer.limit()) {
-                        uVal = uBuffer.get(uPos);
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error reading U plane at uPos=" + uPos + ", limit=" + uBuffer.limit(), e);
-                }
-                
-                if (pos < uvLimit) {
-                    nv21[pos++] = vVal;
-                }
-                if (pos < uvLimit) {
-                    nv21[pos++] = uVal;
+                if (uIdx >= 0 && uIdx < uRemaining && pos < uvLimit) {
+                    nv21[pos++] = uBytes[uIdx];
+                } else if (pos < uvLimit) {
+                    nv21[pos++] = 0;
                 }
             }
         }
@@ -937,5 +953,223 @@ public class CameraStreamer {
 
     public synchronized String getCurrentCameraId() {
         return currentCameraId;
+    }
+
+    private void applyCameraSettings() {
+        if (captureBuilder == null) return;
+        
+        // 1. Apply Zoom
+        Rect zoomRect = calculateZoomRect(zoomFactor);
+        if (zoomRect != null) {
+            captureBuilder.set(CaptureRequest.SCALER_CROP_REGION, zoomRect);
+        }
+
+        // 2. Apply Exposure Compensation
+        captureBuilder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, exposureCompensation);
+
+        // 3. Apply Focus Mode
+        if (focusMode == 1) { // Manual Focus
+            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
+            captureBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, manualFocusDistance);
+        } else {
+            if (isAutofocusLocked) {
+                captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
+                captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
+            } else {
+                captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
+            }
+        }
+
+        // 4. Apply White Balance (AWB)
+        captureBuilder.set(CaptureRequest.CONTROL_AWB_MODE, awbMode);
+
+        // 5. Apply Stabilization
+        if (stabilizationEnabled) {
+            captureBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON);
+        } else {
+            captureBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF);
+        }
+    }
+
+    private Rect calculateZoomRect(float zoomLevel) {
+        if (activeArraySize == null) return null;
+        float maxZoom = getMaxZoom();
+        zoomLevel = Math.max(1.0f, Math.min(zoomLevel, maxZoom));
+        int xOffset = (int) ((activeArraySize.width() / 2f) * (1f - 1f / zoomLevel));
+        int yOffset = (int) ((activeArraySize.height() / 2f) * (1f - 1f / zoomLevel));
+        return new Rect(
+            activeArraySize.left + xOffset,
+            activeArraySize.top + yOffset,
+            activeArraySize.right - xOffset,
+            activeArraySize.bottom - yOffset
+        );
+    }
+
+    public float getMaxZoom() {
+        if (currentCameraId == null) return 1.0f;
+        try {
+            CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+            CameraCharacteristics characteristics = manager.getCameraCharacteristics(currentCameraId);
+            Float maxZoom = characteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM);
+            return (maxZoom != null) ? maxZoom : 1.0f;
+        } catch (Exception e) {
+            return 1.0f;
+        }
+    }
+
+    public int getMinExposure() {
+        if (currentCameraId == null) return 0;
+        try {
+            CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+            CameraCharacteristics characteristics = manager.getCameraCharacteristics(currentCameraId);
+            android.util.Range<Integer> range = characteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE);
+            return (range != null) ? range.getLower() : 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    public int getMaxExposure() {
+        if (currentCameraId == null) return 0;
+        try {
+            CameraManager manager = (Context.CAMERA_SERVICE != null) ? 
+                (CameraManager) context.getSystemService(Context.CAMERA_SERVICE) : null;
+            if (manager == null) return 0;
+            CameraCharacteristics characteristics = manager.getCameraCharacteristics(currentCameraId);
+            android.util.Range<Integer> range = characteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE);
+            return (range != null) ? range.getUpper() : 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    public synchronized void setZoomFactor(float zoom) {
+        this.zoomFactor = zoom;
+        new SettingsManager(context).setZoomFactor(zoom);
+        triggerSettingsUpdate();
+    }
+
+    public float getZoomFactor() {
+        return zoomFactor;
+    }
+
+    public synchronized void setExposureCompensation(int ec) {
+        this.exposureCompensation = ec;
+        new SettingsManager(context).setExposureCompensation(ec);
+        triggerSettingsUpdate();
+    }
+
+    public int getExposureCompensation() {
+        return exposureCompensation;
+    }
+
+    public synchronized void setFocusMode(int mode) {
+        this.focusMode = mode;
+        new SettingsManager(context).setFocusMode(mode);
+        triggerSettingsUpdate();
+    }
+
+    public int getFocusMode() {
+        return focusMode;
+    }
+
+    public synchronized void setManualFocusDistance(float distance) {
+        this.manualFocusDistance = distance;
+        new SettingsManager(context).setManualFocusDistance(distance);
+        triggerSettingsUpdate();
+    }
+
+    public float getManualFocusDistance() {
+        return manualFocusDistance;
+    }
+
+    public synchronized void setAwbMode(int mode) {
+        this.awbMode = mode;
+        new SettingsManager(context).setAwbMode(mode);
+        triggerSettingsUpdate();
+    }
+
+    public int getAwbMode() {
+        return awbMode;
+    }
+
+    public synchronized void setStabilizationEnabled(boolean enabled) {
+        this.stabilizationEnabled = enabled;
+        new SettingsManager(context).setStabilizationEnabled(enabled);
+        triggerSettingsUpdate();
+    }
+
+    public boolean getStabilizationEnabled() {
+        return stabilizationEnabled;
+    }
+
+    private void triggerSettingsUpdate() {
+        if (captureBuilder == null || captureSession == null || backgroundHandler == null) return;
+        backgroundHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                applyCameraSettings();
+                try {
+                    captureSession.setRepeatingRequest(captureBuilder.build(), captureCallback, backgroundHandler);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error applying camera settings dynamically", e);
+                }
+            }
+        });
+    }
+
+    public synchronized void applyFocusAtPoint(float touchX, float touchY, int viewWidth, int viewHeight) {
+        if (captureSession == null || captureBuilder == null || activeArraySize == null || backgroundHandler == null) return;
+        
+        backgroundHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    int sensorW = activeArraySize.width();
+                    int sensorH = activeArraySize.height();
+                    
+                    float scaleX = (float) sensorW / viewWidth;
+                    float scaleY = (float) sensorH / viewHeight;
+                    
+                    int sensorTouchX = (int) (touchX * scaleX);
+                    int sensorTouchY = (int) (touchY * scaleY);
+                    
+                    int boxSize = 150;
+                    int left = Math.max(0, sensorTouchX - boxSize / 2);
+                    int top = Math.max(0, sensorTouchY - boxSize / 2);
+                    int right = Math.min(sensorW, left + boxSize);
+                    int bottom = Math.min(sensorH, top + boxSize);
+                    
+                    Rect focusRect = new Rect(left, top, right, bottom);
+                    android.hardware.camera2.params.MeteringRectangle[] afRegions = new android.hardware.camera2.params.MeteringRectangle[]{
+                        new android.hardware.camera2.params.MeteringRectangle(focusRect, 1000)
+                    };
+                    
+                    captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
+                    captureBuilder.set(CaptureRequest.CONTROL_AF_REGIONS, afRegions);
+                    captureBuilder.set(CaptureRequest.CONTROL_AE_REGIONS, afRegions);
+                    captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+                    
+                    captureSession.capture(captureBuilder.build(), new CameraCaptureSession.CaptureCallback() {
+                        @Override
+                        public void onCaptureCompleted(@NonNull CameraCaptureSession session,
+                                                       @NonNull CaptureRequest request,
+                                                       @NonNull TotalCaptureResult result) {
+                            super.onCaptureCompleted(session, request, result);
+                            try {
+                                captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
+                                captureSession.setRepeatingRequest(captureBuilder.build(), captureCallback, backgroundHandler);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Failed to reset AF trigger after touch focus", e);
+                            }
+                        }
+                    }, backgroundHandler);
+                    
+                    Log.i(TAG, "Triggered Touch-to-Focus at: " + focusRect.toString());
+                } catch (Exception e) {
+                    Log.e(TAG, "Touch-to-Focus failed", e);
+                }
+            }
+        });
     }
 }
