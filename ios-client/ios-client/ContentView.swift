@@ -137,21 +137,14 @@ struct ContentView: View {
             Color.black
                 .ignoresSafeArea()
             
-            // 1. Live Camera Preview (if not muted)
+            // 1. Live Camera Preview (if not muted) — hardware-accelerated via AVCaptureVideoPreviewLayer
             if !isPreviewMuted {
-                GeometryReader { geo in
-                    let isPortrait = geo.size.height > geo.size.width
-                    Group {
-                        if let cgImage = streamer.currentFrame {
-                            Image(cgImage, scale: 1.0, orientation: .up, label: Text("Camera Preview"))
-                                .resizable()
-                                .aspectRatio(isPortrait ? 9.0/16.0 : 16.0/9.0, contentMode: .fit)
-                        } else {
-                            Color.black
-                        }
-                    }
-                    .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
-                }
+                CameraPreview(
+                    session: streamer.captureSession,
+                    flipHorizontal: settings.flipHorizontal,
+                    flipVertical: settings.flipVertical,
+                    activeCameraPosition: streamer.activeCameraPosition
+                )
                 .ignoresSafeArea()
             } else {
                 // Preview Mute screen

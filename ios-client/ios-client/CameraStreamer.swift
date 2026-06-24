@@ -11,7 +11,7 @@ class CameraStreamer: NSObject, ObservableObject {
     @Published var torchEnabled = false
     @Published var focusModeText = "AUTO-C"
     @Published var filterModeText = "NORMAL"
-    @Published var currentFrame: CGImage? = nil
+
     
     let captureSession = AVCaptureSession()
     private var videoDeviceInput: AVCaptureDeviceInput?
@@ -765,14 +765,11 @@ extension CameraStreamer: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
-        // 1. Apply image filter (or vertical flip) to the buffer
-        let processedBuffer = applyImageFilter(pixelBuffer) ?? pixelBuffer
-        
-        // 2. Render to local preview frame for SwiftUI
-        renderPreviewFrame(processedBuffer)
-        
-        // 3. Only compress and stream if we are streaming
+        // Only process frames when actively streaming
         guard isStreaming else { return }
+        
+        // Apply image filter (or vertical flip) to the buffer for the stream
+        let processedBuffer = applyImageFilter(pixelBuffer) ?? pixelBuffer
         
         let bufferWidth = CVPixelBufferGetWidth(pixelBuffer)
         let bufferHeight = CVPixelBufferGetHeight(pixelBuffer)
@@ -849,14 +846,7 @@ extension CameraStreamer: AVCaptureVideoDataOutputSampleBufferDelegate {
         }
     }
     
-    private func renderPreviewFrame(_ pixelBuffer: CVPixelBuffer) {
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-        if let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) {
-            DispatchQueue.main.async {
-                self.currentFrame = cgImage
-            }
-        }
-    }
+
 }
 
 // Global VideoToolbox compression callback
