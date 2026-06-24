@@ -139,8 +139,18 @@ struct ContentView: View {
             
             // 1. Live Camera Preview (if not muted)
             if !isPreviewMuted {
-                CameraPreview(session: streamer.captureSession)
-                    .ignoresSafeArea()
+                GeometryReader { geo in
+                    let isPortrait = geo.size.height > geo.size.width
+                    CameraPreview(
+                        session: streamer.captureSession,
+                        flipHorizontal: settings.flipHorizontal,
+                        flipVertical: settings.flipVertical,
+                        activeCameraPosition: streamer.activeCameraPosition
+                    )
+                    .aspectRatio(isPortrait ? 9.0/16.0 : 16.0/9.0, contentMode: .fit)
+                    .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
+                }
+                .ignoresSafeArea()
             } else {
                 // Preview Mute screen
                 ZStack {
@@ -188,9 +198,26 @@ struct ContentView: View {
                     Spacer()
                         .allowsHitTesting(false)
                     
+                    // Lens Selector above bottom controls
+                    if !isPreviewMuted {
+                        LensSelectorView(streamer: streamer)
+                            .padding(.bottom, 8)
+                            .transition(.opacity)
+                    }
+                    
                     // Bottom Controls Glass Panel
                     bottomControlsView
                         .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                
+                // Sidebar aligned to leading edge (left)
+                HStack {
+                    if !isPreviewMuted {
+                        quickPreferencesSidebar
+                            .padding(.leading, 12)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
+                    Spacer()
                 }
             }
             
@@ -247,12 +274,14 @@ struct ContentView: View {
                         UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
                     } else if key == "flip_horizontal" {
                         settings.flipHorizontal = (val == "true")
+                        streamer.updateConnectionOrientation()
                     } else if key == "flip_vertical" {
                         settings.flipVertical = (val == "true")
+                        streamer.updateConnectionOrientation()
                     } else if key == "trigger_af" {
                         streamer.triggerAutofocus()
                     } else if key == "toggle_af_mode" {
-                        streamer.triggerAutofocus()
+                        streamer.toggleAutofocusMode()
                     }
                 }
             }
@@ -542,17 +571,22 @@ struct ContentView: View {
     }
     
     private func getAllIPAddresses() -> [String] {
-        var addresses: [String] = []
+        var wifiAddresses: [String] = []
+        var otherAddresses: [String] = []
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&ifaddr) == 0 else { return addresses }
-        guard let firstAddr = ifaddr else { return addresses }
+        guard getifaddrs(&ifaddr) == 0 else { return [] }
+        guard let firstAddr = ifaddr else { return [] }
         
         for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
             let interface = ptr.pointee
             let addrFamily = interface.ifa_addr.pointee.sa_family
             if addrFamily == UInt8(AF_INET) {
                 let name = String(cString: interface.ifa_name)
-                if name == "lo0" { continue }
+                
+                // Skip loopback and cellular / secondary interfaces
+                if name == "lo0" || name.hasPrefix("pdp_ip") || name.hasPrefix("awdl") || name.hasPrefix("llw") {
+                    continue
+                }
                 
                 var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
                 getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
@@ -560,18 +594,214 @@ struct ContentView: View {
                             nil, socklen_t(0), NI_NUMERICHOST)
                 let ip = String(cString: hostname)
                 if !ip.isEmpty && ip != "0.0.0.0" {
-                    addresses.append(ip)
+                    if name.hasPrefix("en") {
+                        wifiAddresses.append(ip)
+                    } else {
+                        otherAddresses.append(ip)
+                    }
                 }
             }
         }
         freeifaddrs(ifaddr)
-        return addresses
+        return wifiAddresses + otherAddresses
+    }
+    
+    // MARK: - Quick Preferences & Bitrate
+    private var quickPreferencesSidebar: some View {
+        VStack(spacing: 12) {
+            // Face AF
+            QuickPrefButton(
+                icon: "person.fill.viewfinder",
+                text: nil,
+                isActive: settings.faceAutoFocus,
+                action: {
+                    triggerHapticFeedback(.light)
+                    settings.faceAutoFocus.toggle()
+                }
+            )
+            
+            // Video Stabilization
+            QuickPrefButton(
+                icon: "waveform",
+                text: nil,
+                isActive: settings.videoStabilization,
+                action: {
+                    triggerHapticFeedback(.light)
+                    settings.videoStabilization.toggle()
+                    streamer.updateConnectionOrientation()
+                }
+            )
+            
+            // Keep Screen On
+            QuickPrefButton(
+                icon: "sun.max.fill",
+                text: nil,
+                isActive: settings.keepScreenOn,
+                action: {
+                    triggerHapticFeedback(.light)
+                    settings.keepScreenOn.toggle()
+                    UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
+                }
+            )
+            
+            // Flip H
+            QuickPrefButton(
+                icon: "arrow.left.and.right",
+                text: nil,
+                isActive: settings.flipHorizontal,
+                action: {
+                    triggerHapticFeedback(.light)
+                    settings.flipHorizontal.toggle()
+                    streamer.updateConnectionOrientation()
+                }
+            )
+            
+            // Flip V
+            QuickPrefButton(
+                icon: "arrow.up.and.down",
+                text: nil,
+                isActive: settings.flipVertical,
+                action: {
+                    triggerHapticFeedback(.light)
+                    settings.flipVertical.toggle()
+                    streamer.updateConnectionOrientation()
+                }
+            )
+            
+            // Bitrate cycler
+            QuickPrefButton(
+                icon: nil,
+                text: bitrateLabel(settings.bitrate),
+                isActive: false,
+                action: {
+                    triggerHapticFeedback(.light)
+                    cycleBitrate()
+                }
+            )
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color.black.opacity(0.35))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+        )
+    }
+    
+    private func bitrateLabel(_ br: Int) -> String {
+        return "\(br / 1000000)M"
+    }
+    
+    private func cycleBitrate() {
+        let bitrates = [1000000, 2000000, 3000000, 4000000, 5000000, 6000000, 10000000]
+        if let index = bitrates.firstIndex(of: settings.bitrate) {
+            let nextIndex = (index + 1) % bitrates.count
+            settings.bitrate = bitrates[nextIndex]
+        } else {
+            settings.bitrate = 3000000
+        }
+        streamer.updateBitrateOnTheFly()
+    }
+}
+
+// MARK: - HUD Helper Views
+struct QuickPrefButton: View {
+    let icon: String?
+    let text: String?
+    let isActive: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Group {
+                if let icon = icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 18))
+                } else if let text = text {
+                    Text(text)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                }
+            }
+            .foregroundColor(isActive ? DesignTokens.accent : .white)
+            .frame(width: 48, height: 48)
+            .background(
+                Circle()
+                    .fill(isActive ? DesignTokens.accent.opacity(0.15) : Color.black.opacity(0.45))
+            )
+            .overlay(
+                Circle()
+                    .stroke(isActive ? DesignTokens.accent.opacity(0.6) : Color.white.opacity(0.25), lineWidth: 1.5)
+            )
+        }
+    }
+}
+
+struct LensSelectorView: View {
+    @ObservedObject var streamer: CameraStreamer
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(streamer.availableLenses, id: \.self) { lens in
+                let label = lensLabel(lens)
+                let isSelected = streamer.activeLensType == lens
+                
+                Button(action: {
+                    triggerHapticFeedback(.light)
+                    streamer.selectLens(lens)
+                }) {
+                    Text(label)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(isSelected ? .black : .white)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(isSelected ? DesignTokens.accent : Color.black.opacity(0.45))
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(isSelected ? Color.clear : Color.white.opacity(0.2), lineWidth: 1)
+                        )
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(Color.black.opacity(0.3))
+        )
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+    }
+    
+    private func lensLabel(_ lens: AVCaptureDevice.DeviceType) -> String {
+        switch lens {
+        case .builtInUltraWideCamera: return ".5"
+        case .builtInWideAngleCamera: return "1.0"
+        case .builtInTelephotoCamera: return "2.0"
+        default: return "1x"
+        }
+    }
+    
+    private func triggerHapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.prepare()
+        generator.impactOccurred()
     }
 }
 
 // MARK: - Camera Preview UIView
 class PreviewUIView: UIView {
     private var previewLayer: AVCaptureVideoPreviewLayer?
+    
+    var flipHorizontal: Bool = false
+    var flipVertical: Bool = false
+    var activeCameraPosition: AVCaptureDevice.Position = .back
     
     init(session: AVCaptureSession) {
         super.init(frame: .zero)
@@ -613,6 +843,14 @@ class PreviewUIView: UIView {
     
     func updateOrientation() {
         guard let connection = previewLayer?.connection, connection.isVideoOrientationSupported else { return }
+        
+        let isFront = activeCameraPosition == .front
+        let shouldMirror = isFront != flipHorizontal
+        if connection.isVideoMirroringSupported {
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.isVideoMirrored = shouldMirror
+        }
+        
         if let windowScene = self.window?.windowScene {
             let orientation = windowScene.interfaceOrientation
             switch orientation {
@@ -630,6 +868,10 @@ class PreviewUIView: UIView {
         } else {
             connection.videoOrientation = .landscapeRight
         }
+        
+        DispatchQueue.main.async {
+            self.transform = CGAffineTransform(scaleX: 1, y: self.flipVertical ? -1 : 1)
+        }
     }
     
     override func didMoveToWindow() {
@@ -640,12 +882,22 @@ class PreviewUIView: UIView {
 
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
+    let flipHorizontal: Bool
+    let flipVertical: Bool
+    let activeCameraPosition: AVCaptureDevice.Position
     
     func makeUIView(context: Context) -> PreviewUIView {
-        return PreviewUIView(session: session)
+        let view = PreviewUIView(session: session)
+        view.flipHorizontal = flipHorizontal
+        view.flipVertical = flipVertical
+        view.activeCameraPosition = activeCameraPosition
+        return view
     }
     
     func updateUIView(_ uiView: PreviewUIView, context: Context) {
+        uiView.flipHorizontal = flipHorizontal
+        uiView.flipVertical = flipVertical
+        uiView.activeCameraPosition = activeCameraPosition
         uiView.updateOrientation()
     }
 }

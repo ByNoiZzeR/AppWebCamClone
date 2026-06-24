@@ -569,6 +569,37 @@ class CameraStreamer: NSObject, ObservableObject {
         }
     }
     
+    func toggleAutofocusMode() {
+        guard let input = videoDeviceInput else { return }
+        let device = input.device
+        
+        do {
+            try device.lockForConfiguration()
+            if device.focusMode == .continuousAutoFocus {
+                if device.isFocusModeSupported(.locked) {
+                    device.focusMode = .locked
+                }
+                if device.isExposureModeSupported(.locked) {
+                    device.exposureMode = .locked
+                }
+                focusModeText = "AUTO-L"
+                print("Camera focus and exposure locked")
+            } else {
+                if device.isFocusModeSupported(.continuousAutoFocus) {
+                    device.focusMode = .continuousAutoFocus
+                }
+                if device.isExposureModeSupported(.continuousAutoExposure) {
+                    device.exposureMode = .continuousAutoExposure
+                }
+                focusModeText = "AUTO-C"
+                print("Camera focus and exposure unlocked (Continuous)")
+            }
+            device.unlockForConfiguration()
+        } catch {
+            print("Failed to toggle autofocus mode: \(error)")
+        }
+    }
+    
     func triggerAutofocus() {
         guard let input = videoDeviceInput else { return }
         let device = input.device
@@ -577,21 +608,12 @@ class CameraStreamer: NSObject, ObservableObject {
             try device.lockForConfiguration()
             if device.isFocusModeSupported(.autoFocus) {
                 device.focusMode = .autoFocus
-                focusModeText = "AUTO-L"
             }
+            if device.isExposureModeSupported(.autoExposure) {
+                device.exposureMode = .autoExposure
+            }
+            focusModeText = "AUTO-L"
             device.unlockForConfiguration()
-            
-            // Revert back to continuous after a delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                do {
-                    try device.lockForConfiguration()
-                    if device.isFocusModeSupported(.continuousAutoFocus) {
-                        device.focusMode = .continuousAutoFocus
-                        self.focusModeText = "AUTO-C"
-                    }
-                    device.unlockForConfiguration()
-                } catch {}
-            }
         } catch {
             print("Failed to trigger AF: \(error)")
         }

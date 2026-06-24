@@ -1,3 +1,7 @@
 build/
 src/ui/moc_*
 src/ui/uic_*
+.gradle/
+releases/
+*.apk
+*.ipa
